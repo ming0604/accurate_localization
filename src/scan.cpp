@@ -41,7 +41,7 @@ private:
     int laser_x_grid;
     int laser_y_grid;
     double laser_yaw;
-    float occ_threshold=65;
+    int occ_threshold=65;
     vector<float> ranges;
     vector<float> intensities;
 
@@ -126,7 +126,7 @@ public:
         laser_y_grid = (laser_y-grid_origin_y)/grid_map.info.resolution;
         cout << "laser_x_grid = " << laser_x_grid << ",laser_y_grid = " << laser_y_grid << ", laser_yaw="<< laser_yaw << endl;
         float distance_virtual;
-       
+        int index = 0;
         
         for(int i=0; i<ranges.size(); i++)
         {   
@@ -135,77 +135,93 @@ public:
             float angle,x_map,y_map,m;
             bool find_vir_flag=false;
             angle = laser_yaw + laser_angle_min + i * laser_angle_increment;
-            cout << "angle:" << angle << endl;
+            
             if(angle>2.0*M_PI)
             {
                 angle = angle - 2.0*M_PI;
             }
+            
             m = tan(angle);
-            cout<<m<<endl;
+            cout << "angle:" << angle <<"m: "<<m<< endl;
             //for 1＆2 Quadrant
             if(angle>=0 && angle<=M_PI)
             {   
                 
                 if(m>=0 && m<=1)
                 {   
+                    ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         x_grid = x_grid+1;
                         y_grid = round(line_fx(x_grid, m));
-                        if(map_2D[y_grid][x_grid]>=occ_threshold)
+                        index =x_grid+y_grid*grid_width;
+                        if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
+                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
                 }
                 else if(m>1)
-                {
+                {   
+                    
+                    ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         y_grid = y_grid+1;
                         x_grid = round(line_fy(y_grid, m));
-                        if(map_2D[y_grid][x_grid]>=occ_threshold)
+                        index =x_grid+y_grid*grid_width;
+                        if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
+                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
+
                     }
                 }
                 else if(m<-1)
-                {
+                {   
+                    ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         y_grid = y_grid+1;
                         x_grid = round(line_fy(y_grid, m));
-                        if(map_2D[y_grid][x_grid]>=occ_threshold)
+                        index =x_grid+y_grid*grid_width;
+                        if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
+                            ROS_INFO("find virtual point! ");
                             break;
                         }
+
                     }
                 }
                 else if(m<0 && m>=-1)
-                {
+                {   
+                    ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         x_grid = x_grid-1;
                         y_grid = round(line_fx(x_grid, m));
-                        if(map_2D[y_grid][x_grid]>=occ_threshold)
+                        index =x_grid+y_grid*grid_width;
+                        if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
+                            ROS_INFO("find virtual point! ");
                             break;
                         }
                     }
@@ -215,66 +231,77 @@ public:
             else
             {
                 if(m>=0 && m<=1)
-                {
+                {   
+                    ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         x_grid = x_grid-1;
                         y_grid = round(line_fx(x_grid, m));
-                        if(map_2D[y_grid][x_grid]>=occ_threshold)
+                        index =x_grid+y_grid*grid_width;
+                        if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
+                            ROS_INFO("find virtual point! ");
                             break;
                         }
                     }
                 }
                 else if(m>1)
-                {
+                {   
+                    ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         y_grid = y_grid-1;
                         x_grid = round(line_fy(y_grid, m));
-                        if(map_2D[y_grid][x_grid]>=occ_threshold)
+                        index =x_grid+y_grid*grid_width;
+                        if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
+                            ROS_INFO("find virtual point! ");
                             break;
                         }
                     }
                 }
                 else if(m<-1)
                 {   ROS_INFO("start find virtual point ");
-                    while(x_grid>=0 && x_grid <= grid_width && y_grid>=0 && y_grid <= grid_height) 
+                    while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {   
                         
                         y_grid = y_grid-1;
                         x_grid = round(line_fy(y_grid, m));
-                        if(map_2D[y_grid][x_grid]>=occ_threshold)
+                        index =x_grid+y_grid*grid_width;
+                        if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
+                            ROS_INFO("find virtual point! ");
                             break;
                         }
                     }
                 }
                 else if(m<0 && m>=-1)
-                {
-                    while(x_grid>=0 && x_grid <= grid_width && y_grid>=0 && y_grid <= grid_height) 
+                {   
+                    ROS_INFO("start find virtual point ");
+                    while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         x_grid = x_grid+1;
                         y_grid = round(line_fx(x_grid, m));
-                        if(map_2D[y_grid][x_grid]>=occ_threshold)
+                        index =x_grid+y_grid*grid_width;
+                        if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
+                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
@@ -380,7 +407,6 @@ public:
         ROS_INFO("scan_pc published");
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr virtual_pc = create_vitual_scan_pc();
-        /*
         ROS_INFO("Received virtual_pc");
         sensor_msgs::PointCloud2 virtual_pc_msg;
         pcl::toROSMsg(*virtual_pc, virtual_pc_msg);
@@ -388,7 +414,7 @@ public:
         virtual_pc_msg.header.frame_id = "map";
         virtual_pc_pub.publish(virtual_pc_msg);
         ROS_INFO("virtual_pc published");
-        */
+        
     }
 };
 
