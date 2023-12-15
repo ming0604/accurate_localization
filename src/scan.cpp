@@ -19,6 +19,8 @@
 #include <pcl/registration/icp.h>
 #include <pcl_ros/transforms.h>
 
+#include <csm/csm_all.h> 
+using namespace CSM ;
 using namespace std;
 
 class scan_to_pc
@@ -33,9 +35,14 @@ private:
     float grid_origin_y;
     int grid_height;
     int grid_width;
+
     float laser_angle_min;
     float laser_angle_max;
     float laser_angle_increment;
+    float laser_time_increment;
+    float range_max;
+    float range_min;
+
     double laser_x;
     double laser_y;
     int laser_x_grid;
@@ -44,6 +51,14 @@ private:
     int occ_threshold=65;
     vector<float> ranges;
     vector<float> intensities;
+
+    vector<float> virtual_ranges;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr scan_pc;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr virtual_pc;
+    sensor_msgs::LaserScan  virtual_scan;
+
+    sm_params input_;
+    sm_result output_;
 
     ros::NodeHandle _nh;
 
@@ -54,6 +69,7 @@ private:
 
     ros::Publisher scan_pc_pub;
     ros::Publisher virtual_pc_pub;
+    ros::Publisher virtual_scan_pub;
     tf::TransformListener listener;
     tf::StampedTransform laser_map_transform;
 public:
@@ -66,21 +82,8 @@ public:
 
         scan_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/scan_pc", 100);
         virtual_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/virtual_pc", 100);
+        virtual_scan_pub = _nh.advertise<sensor_msgs::LaserScan >("/virtual_scan", 100);
 
-    }
-
-    //change map from 1D arry into 2D vector
-    vector<vector<int>> convertTo2DVector(vector<signed char> data, int rows, int cols) {
-        vector<vector<int>> result;
-        int index = 0;
-
-        for (int i = 0; i < rows; i++) 
-        {
-            vector<int> row_data(data.begin() + index, data.begin()+index+cols-1);
-            result.push_back(row_data);
-            index += cols;
-        }
-        return result;
     }
 
     void tf_listener()
@@ -127,24 +130,31 @@ public:
         cout << "laser_x_grid = " << laser_x_grid << ",laser_y_grid = " << laser_y_grid << ", laser_yaw="<< laser_yaw << endl;
         float distance_virtual;
         int index = 0;
-        
+        virtual_ranges.clear();
+
         for(int i=0; i<ranges.size(); i++)
         {   
             int x_grid = laser_x_grid;
             int y_grid = laser_y_grid;
             float angle,x_map,y_map,m;
             bool find_vir_flag=false;
-            angle = laser_yaw + laser_angle_min + i * laser_angle_increment;
+            angle = laser_yaw -(laser_angle_min + i * laser_angle_increment);
             
             if(angle>2.0*M_PI)
             {
                 angle = angle - 2.0*M_PI;
             }
+            if(angle<-2.0*M_PI)
+            {
+                angle = angle + 2.0*M_PI;
+            }
+
             
             m = tan(angle);
+            cout << "lidar_angle" << laser_yaw << endl;
             cout << "angle:" << angle <<"m: "<<m<< endl;
             //for 1＆2 Quadrant
-            if(angle>=0 && angle<=M_PI)
+            if((angle>=0 && angle<=M_PI) || (angle<=-M_PI && angle>=-2.0*M_PI))
             {   
                 
                 if(m>=0 && m<=1)
@@ -201,7 +211,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! ");
+                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
 
@@ -221,7 +231,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! ");
+                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
@@ -244,7 +254,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! ");
+                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
@@ -263,7 +273,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! ");
+                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
@@ -282,7 +292,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! ");
+                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
@@ -310,11 +320,28 @@ public:
 
             //change into point cloud in map frame
             if(find_vir_flag)
-            {
+            {   
+                //store virtual point
                 point.x = x_map;
                 point.y = y_map;
                 point.z = 0.0;  
                 pc->push_back(point);
+
+                //store as ranges(distance between virtual point and lidar)
+                distance_virtual = sqrt( pow((x_map - laser_x),2) + pow((y_map - laser_y),2));
+                virtual_ranges.push_back(distance_virtual);
+            }
+
+            else
+            {   
+                //store virtual point NAN
+                point.x = NAN;
+                point.y = NAN;
+                point.z = 0.0;
+                pc->push_back(point);
+                //store as ranges(distance between virtual point and lidar) NAN
+                distance_virtual = NAN;
+                virtual_ranges.push_back(NAN);
             }
         }
         
@@ -351,6 +378,52 @@ public:
         return pc;
     }
 
+    void laserScanToLDP(vector<float>scan_ranges, LDP& ldp)                                     
+    {   
+        float angle;
+        unsigned int n = scan_ranges.size();
+        ldp = ld_alloc_new(n);
+
+        for (unsigned int i = 0; i < n; i++)
+        {
+            // calculate position in laser frame
+
+            double r = scan_ranges[i];
+
+            if (r > range_min && r < range_max)
+            {
+                // fill in laser scan data
+
+                ldp->valid[i] = 1;
+                ldp->readings[i] = r;
+            }
+            else
+            {
+                ldp->valid[i] = 0;
+                ldp->readings[i] = -1;  // for invalid range
+            }
+            angle = laser_angle_min + i * laser_angle_increment;
+            ldp->theta[i] = angle;
+
+            ldp->cluster[i]  = -1;
+        }
+
+        ldp->min_theta = laser_angle_min;
+        ldp->max_theta = laser_angle_max;
+
+        ldp->odometry[0] = 0.0;
+        ldp->odometry[1] = 0.0;
+        ldp->odometry[2] = 0.0;
+
+        ldp->true_pose[0] = 0.0;
+        ldp->true_pose[1] = 0.0;
+        ldp->true_pose[2] = 0.0;
+    }
+    void PLICP()
+    {
+        
+    }
+
     void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& laser_scan)
     {
         // 在这里处理激光扫描数据
@@ -358,8 +431,12 @@ public:
         laser_angle_min = laser_scan->angle_min;
         laser_angle_max = laser_scan->angle_max;
         laser_angle_increment = laser_scan->angle_increment;
+        laser_time_increment = laser_scan->time_increment;
         ("Received Laser Scan with angle min: %f, angle max: %f", laser_scan->angle_min, laser_scan->angle_max);
         ranges = laser_scan->ranges;
+        range_max = laser_scan->range_max;
+        range_min = laser_scan->range_min;
+
         //cout << "Ranges size: " << laser_scan->ranges.size()<<endl;
         //ROS_INFO("Received Laser Scan ranges size=%d", ranges.size());
     }
@@ -394,10 +471,7 @@ public:
             ROS_ERROR("Failed to call static_map service");
         }
 
-        map_2D = convertTo2DVector(grid_map.data, grid_map.info.height, grid_map.info.width);
-        cout << "map to 2D vector complete, size=" <<map_2D.size()<< endl;
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr scan_pc = create_scan_pc();
+        scan_pc = create_scan_pc();
         ROS_INFO("Received scan_pc");
         sensor_msgs::PointCloud2 scan_pc_msg;
         pcl::toROSMsg(*scan_pc, scan_pc_msg);
@@ -406,7 +480,7 @@ public:
         scan_pc_pub.publish(scan_pc_msg);
         ROS_INFO("scan_pc published");
 
-        pcl::PointCloud<pcl::PointXYZ>::Ptr virtual_pc = create_vitual_scan_pc();
+        virtual_pc = create_vitual_scan_pc();
         ROS_INFO("Received virtual_pc");
         sensor_msgs::PointCloud2 virtual_pc_msg;
         pcl::toROSMsg(*virtual_pc, virtual_pc_msg);
@@ -415,6 +489,17 @@ public:
         virtual_pc_pub.publish(virtual_pc_msg);
         ROS_INFO("virtual_pc published");
         
+        virtual_scan.header.stamp = ros::Time::now();
+        virtual_scan.header.frame_id = "laser";
+        virtual_scan.angle_min = laser_angle_min;
+        virtual_scan.angle_max = laser_angle_max;
+        virtual_scan.angle_increment = laser_angle_increment;
+        virtual_scan.time_increment = laser_time_increment;
+        virtual_scan.range_min = range_min;
+        virtual_scan.range_max = range_max;
+        virtual_scan.ranges = virtual_ranges;
+        virtual_scan_pub.publish(virtual_scan);
+        ROS_INFO("virtual_scan published");
     }
 };
 
