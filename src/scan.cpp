@@ -8,6 +8,7 @@
 
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
 #include <sensor_msgs/PointCloud2.h>
 
 #include <pcl_ros/point_cloud.h>
@@ -59,8 +60,13 @@ private:
 
     sm_params input_;
     sm_result output_;
+    double laser_x_plicp;
+    double laser_y_plicp;
+    double laser_yaw_plicp;
+
 
     ros::NodeHandle _nh;
+    ros::NodeHandle private_node_;
 
     // subscibe laser scan
     ros::Subscriber laser_scan_sub;
@@ -71,11 +77,15 @@ private:
     ros::Publisher virtual_pc_pub;
     ros::Publisher virtual_scan_pub;
     tf::TransformListener listener;
-    tf::StampedTransform laser_map_transform;
+    tf::TransformBroadcaster br;
+    tf::StampedTransform laser_to_map_transform;
+    tf::StampedTransform odom_to_base_link;
+    tf::StampedTransform base_link_to_laser;
 public:
     scan_to_pc(ros::NodeHandle nh)
     {   
         _nh = nh;
+        InitParams();
         laser_scan_sub = _nh.subscribe("/scan", 100, &scan_to_pc::laserScanCallback,this);
         //subscibe amcl pose
         poseSub = _nh.subscribe("/amcl_pose", 1, &scan_to_pc::amclposeCallback,this);
@@ -86,11 +96,182 @@ public:
 
     }
 
-    void tf_listener()
+    void InitParams()
+    {
+        // **** CSM parameter - comments copied from algos.h (by Andrea Censi)
+
+        // Maximum angular displacement between scans
+        if (!private_node_.getParam("max_angular_correction_deg", input_.max_angular_correction_deg))
+        { 
+            input_.max_angular_correction_deg = 90;
+        }   
+
+        // Maximum translation between scans (m)
+        if (!private_node_.getParam("max_linear_correction", input_.max_linear_correction))
+        {
+             input_.max_linear_correction = 2;
+        }   
+
+        // Maximum ICP cycle iterations
+        if (!private_node_.getParam("max_iterations", input_.max_iterations))
+        {
+             input_.max_iterations = 100;
+        }   
+
+        // A threshold for stopping (m)
+        if (!private_node_.getParam("epsilon_xy", input_.epsilon_xy))
+        {
+             input_.epsilon_xy = 0.000001;
+        }   
+
+        // A threshold for stopping (rad)
+        if (!private_node_.getParam("epsilon_theta", input_.epsilon_theta))
+        {
+            input_.epsilon_theta = 0.000001;
+        }    
+
+        // Maximum distance for a correspondence to be valid
+        if (!private_node_.getParam("max_correspondence_dist", input_.max_correspondence_dist))
+        {
+            input_.max_correspondence_dist = 5.0;
+        }    
+
+        // Noise in the scan (m)
+        if (!private_node_.getParam("sigma", input_.sigma))
+        {
+            input_.sigma = 0.010;
+        }    
+
+        // Use smart tricks for finding correspondences.
+        if (!private_node_.getParam("use_corr_tricks", input_.use_corr_tricks))
+        {
+            input_.use_corr_tricks = 1;
+        }    
+
+        // Restart: Restart if error is over threshold
+        if (!private_node_.getParam("restart", input_.restart))
+        {
+            input_.restart = 0;
+        }    
+
+        // Restart: Threshold for restarting
+        if (!private_node_.getParam("restart_threshold_mean_error", input_.restart_threshold_mean_error))
+        {
+            input_.restart_threshold_mean_error = 0.01;
+        }    
+
+        // Restart: displacement for restarting. (m)
+        if (!private_node_.getParam("restart_dt", input_.restart_dt))
+        {
+            input_.restart_dt = 1.0;
+        }    
+
+        // Restart: displacement for restarting. (rad)
+        if (!private_node_.getParam("restart_dtheta", input_.restart_dtheta))
+        {
+            input_.restart_dtheta = 0.1;
+        }    
+
+        // Max distance for staying in the same clustering
+        if (!private_node_.getParam("clustering_threshold", input_.clustering_threshold))
+        {
+            input_.clustering_threshold = 0.25;
+        }    
+
+        // Number of neighbour rays used to estimate the orientation
+        if (!private_node_.getParam("orientation_neighbourhood", input_.orientation_neighbourhood))
+        {
+            input_.orientation_neighbourhood = 20;
+        }    
+
+        // If 0, it's vanilla ICP
+        if (!private_node_.getParam("use_point_to_line_distance", input_.use_point_to_line_distance))
+        {
+            input_.use_point_to_line_distance = 1;
+        }    
+
+        // Discard correspondences based on the angles
+        if (!private_node_.getParam("do_alpha_test", input_.do_alpha_test))
+        {
+            input_.do_alpha_test = 0;
+        }    
+
+        // Discard correspondences based on the angles - threshold angle, in degrees
+        if (!private_node_.getParam("do_alpha_test_thresholdDeg", input_.do_alpha_test_thresholdDeg))
+        {
+            input_.do_alpha_test_thresholdDeg = 20.0;
+        }    
+
+        // Percentage of correspondences to consider: if 0.9,
+        // always discard the top 10% of correspondences with more error
+        if (!private_node_.getParam("outliers_maxPerc", input_.outliers_maxPerc))
+        {
+            input_.outliers_maxPerc = 0.95;
+        }    
+
+        // Parameters describing a simple adaptive algorithm for discarding.
+        //  1) Order the errors.
+        //  2) Choose the percentile according to outliers_adaptive_order.
+        //     (if it is 0.7, get the 70% percentile)
+        //  3) Define an adaptive threshold multiplying outliers_adaptive_mult
+        //     with the value of the error at the chosen percentile.
+        //  4) Discard correspondences over the threshold.
+        //  This is useful to be conservative; yet remove the biggest errors.
+        if (!private_node_.getParam("outliers_adaptive_order", input_.outliers_adaptive_order))
+        {
+            input_.outliers_adaptive_order = 0.7;
+        }    
+
+        if (!private_node_.getParam("outliers_adaptive_mult", input_.outliers_adaptive_mult))
+        {
+            input_.outliers_adaptive_mult = 2.0;
+        }   
+
+        // If you already have a guess of the solution, you can compute the polar angle
+        // of the points of one scan in the new position. If the polar angle is not a monotone
+        // function of the readings index, it means that the surface is not visible in the
+        // next position. If it is not visible, then we don't use it for matching.
+        if (!private_node_.getParam("do_visibility_test", input_.do_visibility_test))
+        {
+            input_.do_visibility_test = 0;
+        }    
+
+        // no two points in laser_sens can have the same corr.
+        if (!private_node_.getParam("outliers_remove_doubles", input_.outliers_remove_doubles))
+        {
+            input_.outliers_remove_doubles = 1;
+        }   
+
+        // If 1, computes the covariance of ICP using the method http://purl.org/censi/2006/icpcov
+        if (!private_node_.getParam("do_compute_covariance", input_.do_compute_covariance))
+        {
+            input_.do_compute_covariance = 0;
+        }    
+
+        // Checks that find_correspondences_tricks gives the right answer
+        if (!private_node_.getParam("debug_verify_tricks", input_.debug_verify_tricks))
+        {
+            input_.debug_verify_tricks = 0;
+        }    
+
+        // If 1, the field 'true_alpha' (or 'alpha') in the first scan is used to compute the
+        // incidence beta, and the factor (1/cos^2(beta)) used to weight the correspondence.");
+        if (!private_node_.getParam("use_ml_weights", input_.use_ml_weights))
+        {
+            input_.use_ml_weights = 0;
+        }    
+        // If 1, the field 'readings_sigma' in the second scan is used to weight the
+        // correspondence by 1/sigma^2
+        if (!private_node_.getParam("use_sigma_weights", input_.use_sigma_weights))
+        {
+            input_.use_sigma_weights = 0;
+        }    
+    }
+    void tf_listener_laser()
     {
         try{
             //"map is target,laser is source"
-            listener.lookupTransform("map", "laser", ros::Time(0),laser_map_transform);
+            listener.lookupTransform("map", "laser", ros::Time(0),laser_to_map_transform);
         }
         catch (tf::TransformException& ex) {
             ROS_ERROR("%s", ex.what());
@@ -98,12 +279,28 @@ public:
             return;
         }
         
-        laser_x = laser_map_transform.getOrigin().x(),
-        laser_y = laser_map_transform.getOrigin().y(),
-        laser_yaw = tf::getYaw(laser_map_transform.getRotation());
+        laser_x = laser_to_map_transform.getOrigin().x(),
+        laser_y = laser_to_map_transform.getOrigin().y(),
+        laser_yaw = tf::getYaw(laser_to_map_transform.getRotation());
         ROS_INFO("get lidar pose:  x: %f, y: %f, yaw: %f",laser_x,laser_y,laser_yaw);
     }
-
+    void tf_listener_odom()
+    {
+        try{
+            //"base_link is target,odom is source"
+            listener.lookupTransform("base_link", "odom_frame", ros::Time(0),odom_to_base_link);
+        }
+        catch (tf::TransformException& ex) {
+            ROS_ERROR("%s", ex.what());
+            // 处理异常
+            return;
+        }
+        
+        laser_x = laser_to_map_transform.getOrigin().x(),
+        laser_y = laser_to_map_transform.getOrigin().y(),
+        laser_yaw = tf::getYaw(laser_to_map_transform.getRotation());
+        ROS_INFO("get lidar pose:  x: %f, y: %f, yaw: %f",laser_x,laser_y,laser_yaw);
+    }
     float line_fx(int x,float m)
     {
         float y;
@@ -124,7 +321,7 @@ public:
     {   
         pcl::PointCloud<pcl::PointXYZ>::Ptr pc(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::PointXYZ point;
-        tf_listener();
+
         laser_x_grid = (laser_x-grid_origin_x)/grid_map.info.resolution;
         laser_y_grid = (laser_y-grid_origin_y)/grid_map.info.resolution;
         cout << "laser_x_grid = " << laser_x_grid << ",laser_y_grid = " << laser_y_grid << ", laser_yaw="<< laser_yaw << endl;
@@ -380,7 +577,7 @@ public:
 
     void laserScanToLDP(vector<float>scan_ranges, LDP& ldp)                                     
     {   
-        float angle;
+        double angle;
         unsigned int n = scan_ranges.size();
         ldp = ld_alloc_new(n);
 
@@ -396,6 +593,7 @@ public:
 
                 ldp->valid[i] = 1;
                 ldp->readings[i] = r;
+                cout << "ldp->readings: " << ldp->readings[i] << endl;
             }
             else
             {
@@ -419,15 +617,106 @@ public:
         ldp->true_pose[1] = 0.0;
         ldp->true_pose[2] = 0.0;
     }
+  
+    tf::Transform createTf_from_XYyaw(double x, double y, double theta)
+    {   
+        tf::Transform transform;
+        transform.setOrigin(tf::Vector3(x, y, 0.0));
+        tf::Quaternion q;
+        q.setRPY(0.0, 0.0, theta);
+        transform.setRotation(q);
+        return transform;
+    }
+
+    void tf_correct_odom()
+    {   
+        tf::Transform new_laser_to_old_laser;
+        tf::Transform new_laser_to_map;
+        tf::Transform new_base_to_map;
+        tf::Transform odom_to_map;
+        //get the new laser to map transform
+        new_laser_to_old_laser = createTf_from_XYyaw(laser_x_plicp, laser_y_plicp, laser_yaw_plicp);
+        new_laser_to_map = laser_to_map_transform*new_laser_to_old_laser;
+
+        //get base_link to laser transform
+        try{
+            //"map is target,base_link is source"
+            listener.lookupTransform("laser", "base_link", ros::Time(0),base_link_to_laser);
+        }
+        catch (tf::TransformException& ex) {
+            ROS_ERROR("%s", ex.what());
+            // 处理异常
+            return;
+        }
+        //find new base_link to map transform
+        new_base_to_map = new_laser_to_map*base_link_to_laser;
+        //get new odom to map and broadcast it
+        odom_to_map = new_base_to_map*odom_to_base_link;
+        br.sendTransform(tf::StampedTransform(odom_to_map, ros::Time::now(), "map", "odom_frame"));
+    }
+
     void PLICP()
-    {
+    {   
+        LDP true_scan_ldp;
+        LDP virtual_scan_ldp;
+        vector<float> ranges_inside_error;
+        vector<float> virtual_ranges_inside_error;
+
+
+        laserScanToLDP(ranges,true_scan_ldp);  
+        laserScanToLDP(virtual_ranges,virtual_scan_ldp); 
+        // CSM is used in the following way:
+        // The scans are always in the laser frame
+        // The reference scan (prevLDPcan_) has a pose of [0, 0, 0]
+        // The new scan (currLDPScan) has a pose equal to the movement
+        // of the laser in the laser frame since the last scan
+        // The computed correction is then propagated using the tf machinery
+
+        true_scan_ldp->odometry[0] = 0.0;
+        true_scan_ldp->odometry[1] = 0.0;
+        true_scan_ldp->odometry[2] = 0.0;
+
+        true_scan_ldp->estimate[0] = 0.0;
+        true_scan_ldp->estimate[1] = 0.0;
+        true_scan_ldp->estimate[2] = 0.0;
+
+        true_scan_ldp->true_pose[0] = 0.0;
+        true_scan_ldp->true_pose[1] = 0.0;
+        true_scan_ldp->true_pose[2] = 0.0;
+
+        // 位姿的预测值为0，就是不进行预测
+        input_.first_guess[0] = 0;
+        input_.first_guess[1] = 0;
+        input_.first_guess[2] = 0;
+
+        input_.laser_ref = true_scan_ldp;
+        input_.laser_sens = virtual_scan_ldp;
+
+        ROS_INFO("scan has change into LDP, starting PLICP\n");
+        sm_icp(&input_, &output_);
+
+        //new laser pose on the old laser frame
+        if (output_.valid)
+        {
+            laser_x_plicp = output_.x[0];
+            laser_y_plicp = output_.x[1];
+            laser_yaw_plicp = output_.x[2];
         
+            tf_correct_odom();
+
+        }
+        else
+        {
+             ROS_WARN("PLICP is not Converged");
+        }
+
+        ld_free(true_scan_ldp);
+        ld_free(virtual_scan_ldp);
+
     }
 
     void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& laser_scan)
     {
-        // 在这里处理激光扫描数据
-        // 示例：输出激光扫描的角度范围
         laser_angle_min = laser_scan->angle_min;
         laser_angle_max = laser_scan->angle_max;
         laser_angle_increment = laser_scan->angle_increment;
@@ -443,8 +732,7 @@ public:
 
     void amclposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& poseMsg)
     {
-        // 处理接收到的姿态消息
-        // 可以在这里执行你的逻辑操作
+        //get the amcl global pose
         amcl_pose_x = poseMsg->pose.pose.position.x;
         amcl_pose_y = poseMsg->pose.pose.position.y;
         amcl_pose_yaw = tf::getYaw(poseMsg->pose.pose.orientation);
@@ -457,7 +745,7 @@ public:
         nav_msgs::GetMap mapsrv;
         if (map_client.call(mapsrv))
         {
-            // 在这里处理获取到的栅格地图
+            //store the grid map
             grid_map = mapsrv.response.map;
             grid_origin_x = grid_map.info.origin.position.x;
             grid_origin_y = grid_map.info.origin.position.y;
@@ -471,6 +759,7 @@ public:
             ROS_ERROR("Failed to call static_map service");
         }
 
+        //create the scan point cloud
         scan_pc = create_scan_pc();
         ROS_INFO("Received scan_pc");
         sensor_msgs::PointCloud2 scan_pc_msg;
@@ -480,6 +769,9 @@ public:
         scan_pc_pub.publish(scan_pc_msg);
         ROS_INFO("scan_pc published");
 
+        //create the vitual point cloud
+        tf_listener_laser();
+        tf_listener_odom();
         virtual_pc = create_vitual_scan_pc();
         ROS_INFO("Received virtual_pc");
         sensor_msgs::PointCloud2 virtual_pc_msg;
@@ -489,6 +781,7 @@ public:
         virtual_pc_pub.publish(virtual_pc_msg);
         ROS_INFO("virtual_pc published");
         
+        //create the virtual scan
         virtual_scan.header.stamp = ros::Time::now();
         virtual_scan.header.frame_id = "laser";
         virtual_scan.angle_min = laser_angle_min;
@@ -500,6 +793,9 @@ public:
         virtual_scan.ranges = virtual_ranges;
         virtual_scan_pub.publish(virtual_scan);
         ROS_INFO("virtual_scan published");
+        
+        PLICP();
+
     }
 };
 

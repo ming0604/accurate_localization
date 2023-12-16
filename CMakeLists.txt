@@ -20,7 +20,8 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
 )
-
+find_package(PkgConfig)
+pkg_check_modules(csm REQUIRED csm)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -128,7 +129,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${csm_INCLUDE_DIRS} 
 )
-
+link_directories(${csm_LIBRARY_DIRS})
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/accurate_localization.cpp
@@ -145,7 +146,7 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/accurate_localization_node.cpp)
 
 add_executable(scan src/scan.cpp)
-target_link_libraries(scan ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(scan ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${csm_LIBRARIES})
 
 
 
