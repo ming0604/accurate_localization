@@ -22,7 +22,7 @@
     <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0824_map.yaml"/> -->
     <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0824_25.yaml"/> -->
     <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/1016_map.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/1102_map2.yaml"/> -->
+    <!-- <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1102_map2.yaml"/> -->
     <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1114_map.yaml"/>
 
     <!-- Robot Localization using ekf
@@ -101,5 +101,5 @@
         <rosparam command="load" file="$(find sdc)/config/ekf.yaml" />
         <remap from="odometry/filtered" to="amcl_ekf"/>
     </node> -->
-    <node pkg="accurate_localization" type="scan" name="scan_to_pc" output="screen"/>
+    <node pkg="accurate_localization" type="scan" name="scan" output="screen"/>
 </launch>

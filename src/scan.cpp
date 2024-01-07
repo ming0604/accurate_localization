@@ -6,10 +6,15 @@
 #include "nav_msgs/GetMap.h"
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/TransformStamped.h>
 
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
+#include <tf/transform_datatypes.h>
+#include "tf2/LinearMath/Transform.h"
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2/utils.h>
 #include <sensor_msgs/PointCloud2.h>
 
 #include <pcl_ros/point_cloud.h>
@@ -103,7 +108,8 @@ private:
 
 
     tf::TransformListener listener;
-    tf::TransformBroadcaster br;
+    //tf::TransformBroadcaster br;
+    tf2_ros::TransformBroadcaster br;
     tf::StampedTransform laser_to_map_transform;
     tf::StampedTransform odom_to_base_link;
     tf::StampedTransform base_link_to_laser;
@@ -606,14 +612,14 @@ public:
         // go through all the angles
         for (int i = 0; i < ranges.size(); i++)
         {   
-            // 计算当前激光点的角度
+            // count the angle od the scan
             angle = laser_angle_min + i * laser_angle_increment;
 
-            // 计算当前激光点在极坐标下的坐标
+            // change into Cartesian coordinates
             x = ranges[i] * cos(angle);
             y = ranges[i] * sin(angle);
 
-            // 添加点到 PointCloud 中
+            // add the point into the points cloud
             point.x = x;
             point.y = y;
             point.z = 0.0;  
@@ -643,7 +649,7 @@ public:
 
                 ldp->valid[i] = 1;
                 ldp->readings[i] = r;
-                cout << "ldp->readings: " << ldp->readings[i] << endl;
+                //cout << "ldp->readings: " << ldp->readings[i] << endl;
             }
             else
             {
@@ -712,7 +718,17 @@ public:
         //get new odom to map and broadcast it
         tf_listener_odom();
         odom_to_map = new_base_to_map*odom_to_base_link;
-        br.sendTransform(tf::StampedTransform(odom_to_map, ros::Time::now(), "map", "odom_frame"));
+        tf2::Transform tf2_odom_to_map;
+        geometry_msgs::Pose odom_pose_in_map;
+        tf::poseTFToMsg(odom_to_map, odom_pose_in_map);
+        tf2::convert(odom_pose_in_map, tf2_odom_to_map);
+
+        geometry_msgs::TransformStamped odom_to_map_tf_stamped;
+        odom_to_map_tf_stamped.header.frame_id = "map";
+        odom_to_map_tf_stamped.header.stamp = ros::Time::now();
+        odom_to_map_tf_stamped.child_frame_id = "odom_frame";
+        tf2::convert(tf2_odom_to_map, odom_to_map_tf_stamped.transform);
+        br.sendTransform(odom_to_map_tf_stamped);
         ROS_INFO("odom_to_map has been corrected\n");
     }
 
@@ -723,13 +739,13 @@ public:
         vector<float> ranges_inside_error;
         vector<float> virtual_ranges_inside_error;
 
-
+        //need to change the scan into the csm PLICP data type LDP
         laserScanToLDP(ranges,true_scan_ldp);  
         laserScanToLDP(virtual_ranges,virtual_scan_ldp); 
         // CSM is used in the following way:
         // The scans are always in the laser frame
-        // The reference scan (prevLDPcan_) has a pose of [0, 0, 0]
-        // The new scan (currLDPScan) has a pose equal to the movement
+        // The reference scan (prevLDPcan_,true_scan_ldp) has a pose of [0, 0, 0]
+        // The new scan (currLDPScan,virtual_scan_ldp) has a pose equal to the movement
         // of the laser in the laser frame since the last scan
         // The computed correction is then propagated using the tf machinery
 
@@ -755,6 +771,7 @@ public:
         input_.laser_sens = virtual_scan_ldp;
 
         ROS_INFO("scan has change into LDP, starting PLICP\n");
+        //do PLICP
         sm_icp(&input_, &output_);
 
         //new laser pose on the old laser frame
@@ -764,7 +781,8 @@ public:
             laser_x_plicp = output_.x[0];
             laser_y_plicp = output_.x[1];
             laser_yaw_plicp = output_.x[2];
-        
+
+            //use the new laser pose to correct tf tree relationships
             tf_correct_odom();
 
         }
@@ -933,12 +951,14 @@ public:
         virtual_scan_pub.publish(virtual_scan);
         ROS_INFO("virtual_scan published");
         
+        //do PLICP to correct the pose of AMCL
         PLICP();
         PLICP_end_time = ros::Time::now();
         PLICP_time_used =  PLICP_end_time - PLICP_start_time;
         file_icp_time << PLICP_start_time.toSec() << "," << PLICP_end_time.toSec() << "," << PLICP_time_used.toSec() << "\n";
         ROS_INFO("PLICP time used : %f (s)\n", PLICP_time_used.toSec());
         
+        //draw the path of AMCL+PLICP and origin AMCL
         PLICP_pose_path_publisher();
         amcl_path_publisher(poseMsg);
         
