@@ -101,5 +101,5 @@
         <rosparam command="load" file="$(find sdc)/config/ekf.yaml" />
         <remap from="odometry/filtered" to="amcl_ekf"/>
     </node> -->
-    <node pkg="accurate_localization" type="scan" name="scan" output="screen"/>
+    <node pkg="accurate_localization" type="scan" name="scan_PLICP" output="screen"/>
 </launch>

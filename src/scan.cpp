@@ -404,15 +404,16 @@ public:
 
             
             m = tan(angle);
-            cout << "lidar_angle" << laser_yaw << endl;
-            cout << "angle:" << angle <<"m: "<<m<< endl;
+            //cout << "lidar_angle" << laser_yaw << endl;
+            //cout << "angle:" << angle <<"m: "<<m<< endl;
+            
             //for 1＆2 Quadrant
             if((angle>=0 && angle<=M_PI) || (angle<=-M_PI && angle>=-2.0*M_PI))
             {   
                 
                 if(m>=0 && m<=1)
                 {   
-                    ROS_INFO("start find virtual point ");
+                    //ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         x_grid = x_grid+1;
@@ -424,7 +425,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
+                            //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
@@ -432,7 +433,7 @@ public:
                 else if(m>1)
                 {   
                     
-                    ROS_INFO("start find virtual point ");
+                    //ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         y_grid = y_grid+1;
@@ -444,7 +445,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
+                            //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
 
@@ -452,7 +453,7 @@ public:
                 }
                 else if(m<-1)
                 {   
-                    ROS_INFO("start find virtual point ");
+                    //ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         y_grid = y_grid+1;
@@ -464,7 +465,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
+                            //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
 
@@ -472,7 +473,7 @@ public:
                 }
                 else if(m<0 && m>=-1)
                 {   
-                    ROS_INFO("start find virtual point ");
+                    //ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         x_grid = x_grid-1;
@@ -484,7 +485,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
+                            //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
@@ -495,7 +496,7 @@ public:
             {
                 if(m>=0 && m<=1)
                 {   
-                    ROS_INFO("start find virtual point ");
+                    //ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         x_grid = x_grid-1;
@@ -507,14 +508,14 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
+                            //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
                 }
                 else if(m>1)
                 {   
-                    ROS_INFO("start find virtual point ");
+                    //ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         y_grid = y_grid-1;
@@ -526,13 +527,14 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
+                            //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
                 }
                 else if(m<-1)
-                {   ROS_INFO("start find virtual point ");
+                {   
+                    //ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {   
                         
@@ -545,14 +547,14 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
+                            //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
                 }
                 else if(m<0 && m>=-1)
                 {   
-                    ROS_INFO("start find virtual point ");
+                    //ROS_INFO("start find virtual point ");
                     while(x_grid>=0 && x_grid < grid_width && y_grid>=0 && y_grid < grid_height) 
                     {
                         x_grid = x_grid+1;
@@ -564,7 +566,7 @@ public:
                             x_map = x_grid * grid_map.info.resolution + grid_origin_x;
                             y_map = y_grid * grid_map.info.resolution + grid_origin_y;
                             find_vir_flag = true;
-                            ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
+                            //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
                         }
                     }
