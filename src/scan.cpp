@@ -41,7 +41,11 @@ private:
     double PLICP_pose_yaw; 
     nav_msgs::Path amcl_path;
     nav_msgs::Path PLICP_path;
-
+    double init_cov_[3];
+    double cov_xx;
+    double cov_yy;
+    double cov_yawyaw;
+    int re_init_count = 0;
 
     bool amcl_init = false;
     bool PLICP_init = false;
@@ -105,7 +109,7 @@ private:
     ros::Publisher amcl_path_pub;
     ros::Publisher PLICP_path_pub;
     ros::Publisher PLICP_pose_pub;
-
+    ros::Publisher amcl_init_pub;
 
     tf::TransformListener listener;
     //tf::TransformBroadcaster br;
@@ -126,7 +130,11 @@ public:
     {   
         _nh = nh;
         InitParams();
-        laser_scan_sub = _nh.subscribe("/scan", 100, &scan_to_pc::laserScanCallback,this);
+        init_cov_[0] = 0.5 * 0.5;
+        init_cov_[1] = 0.5 * 0.5;
+        init_cov_[2] = (M_PI/12.0) * (M_PI/12.0);
+
+        laser_scan_sub = _nh.subscribe("/scan", 1, &scan_to_pc::laserScanCallback,this);
         //subscibe amcl pose
         poseSub = _nh.subscribe("/amcl_pose", 1, &scan_to_pc::amclposeCallback,this);
 
@@ -136,10 +144,16 @@ public:
         amcl_path_pub = _nh.advertise<nav_msgs::Path>("/amcl_path", 1);
         PLICP_path_pub = _nh.advertise<nav_msgs::Path>("/PLICP_path", 1);
         PLICP_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("/PLICP_pose", 1);
+        amcl_init_pub = _nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
 
         _nh.param<string>("amcl_time_save_path", amcl_time_save_path,"/Default/path");
         _nh.param<string>("ICP_time_save_path", ICP_time_save_path,"/Default/path");
         _nh.param<string>("PLICP_pose_time_save_path", PLICP_pose_time_save_path,"/Default/path");
+        _nh.param("initial_cov_xx", cov_xx , init_cov_[0]);
+        _nh.param("initial_cov_yy", cov_yy, init_cov_[1]);
+        _nh.param("initial_cov_aa", cov_yawyaw, init_cov_[2]);
+    
+
         file_amcl_time.open(amcl_time_save_path);
         file_amcl_time << "last time, this time, pub duration\n";
         file_icp_time.open(ICP_time_save_path);
@@ -769,8 +783,8 @@ public:
         input_.first_guess[2] = 0;
         input_.min_reading = range_min;
         input_.max_reading = range_max;
-        input_.laser_ref = true_scan_ldp;
-        input_.laser_sens = virtual_scan_ldp;
+        input_.laser_ref = virtual_scan_ldp;
+        input_.laser_sens = true_scan_ldp;
 
         ROS_INFO("scan has change into LDP, starting PLICP\n");
         //do PLICP
@@ -796,6 +810,39 @@ public:
         ld_free(true_scan_ldp);
         ld_free(virtual_scan_ldp);
 
+    }
+
+    void amcl_reinit()
+    {   
+        //load the pose of PLICP as new initail pose of AMCL
+        geometry_msgs::PoseWithCovarianceStamped init_pose;
+        tf2::Quaternion myQuaternion;
+        myQuaternion.setRPY(0, 0, PLICP_pose_yaw);
+        myQuaternion.normalize();
+
+        init_pose.header.stamp = ros::Time::now();
+        init_pose.header.frame_id = "map";
+
+        init_pose.pose.pose.position.x = PLICP_pose_x;
+        init_pose.pose.pose.position.y = PLICP_pose_y;
+        init_pose.pose.pose.position.z = 0;
+
+        init_pose.pose.pose.orientation.x = myQuaternion.getX();
+        init_pose.pose.pose.orientation.y = myQuaternion.getY();
+        init_pose.pose.pose.orientation.z = myQuaternion.getZ();
+        init_pose.pose.pose.orientation.w = myQuaternion.getW();
+
+        //initial covariance
+        for(int i=0; i<36; i++)
+        {
+            init_pose.pose.covariance[i] = 0;
+        }
+        //set xx yy yawyaw covariance
+        init_pose.pose.covariance[0] = cov_xx;
+        init_pose.pose.covariance[6*1+1] = cov_yy;
+        init_pose.pose.covariance[6*5+5] = cov_yawyaw;
+        //publish new pose to reinitialize the AMCL
+        amcl_init_pub.publish(init_pose);
     }
 
     void amcl_path_publisher(geometry_msgs::PoseWithCovarianceStamped::ConstPtr poseMsg)
@@ -960,6 +1007,13 @@ public:
         file_icp_time << PLICP_start_time.toSec() << "," << PLICP_end_time.toSec() << "," << PLICP_time_used.toSec() << "\n";
         ROS_INFO("PLICP time used : %f (s)\n", PLICP_time_used.toSec());
         
+        //reinitialize the AMCL
+        re_init_count++;
+        if(re_init_count >25)
+        {
+            amcl_reinit();
+            re_init_count = 0;
+        } 
         //draw the path of AMCL+PLICP and origin AMCL
         PLICP_pose_path_publisher();
         amcl_path_publisher(poseMsg);
