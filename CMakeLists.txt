@@ -150,7 +150,8 @@ link_directories(${csm_LIBRARY_DIRS})
 add_executable(scan src/scan.cpp)
 target_link_libraries(scan ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${csm_LIBRARIES})
 
-
+add_executable(base_gt src/base_gt.cpp)
+target_link_libraries(base_gt ${catkin_LIBRARIES} )
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

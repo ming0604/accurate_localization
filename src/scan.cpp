@@ -46,9 +46,12 @@ private:
     double cov_yy;
     double cov_yawyaw;
     int re_init_count = 0;
+    bool map_received;
 
     bool amcl_init = false;
     bool PLICP_init = false;
+    ros::Time scan_time_stamp;
+    ros::Time amcl_time_stamp;
     ros::Time PLICP_start_time;
     ros::Time amcl_receive_now;
     ros::Time last_amcl_time;
@@ -133,6 +136,7 @@ public:
         init_cov_[0] = 0.5 * 0.5;
         init_cov_[1] = 0.5 * 0.5;
         init_cov_[2] = (M_PI/12.0) * (M_PI/12.0);
+        map_received = false;
 
         laser_scan_sub = _nh.subscribe("/scan", 1, &scan_to_pc::laserScanCallback,this);
         //subscibe amcl pose
@@ -149,9 +153,9 @@ public:
         _nh.param<string>("amcl_time_save_path", amcl_time_save_path,"/Default/path");
         _nh.param<string>("ICP_time_save_path", ICP_time_save_path,"/Default/path");
         _nh.param<string>("PLICP_pose_time_save_path", PLICP_pose_time_save_path,"/Default/path");
-        _nh.param("initial_cov_xx", cov_xx , init_cov_[0]);
-        _nh.param("initial_cov_yy", cov_yy, init_cov_[1]);
-        _nh.param("initial_cov_aa", cov_yawyaw, init_cov_[2]);
+        _nh.param("re_initial_cov_xx", cov_xx , init_cov_[0]);
+        _nh.param("re_initial_cov_yy", cov_yy, init_cov_[1]);
+        _nh.param("re_initial_cov_aa", cov_yawyaw, init_cov_[2]);
     
 
         file_amcl_time.open(amcl_time_save_path);
@@ -352,8 +356,8 @@ public:
             return;
         }
         
-        laser_x = laser_to_map_transform.getOrigin().x(),
-        laser_y = laser_to_map_transform.getOrigin().y(),
+        laser_x = laser_to_map_transform.getOrigin().x();
+        laser_y = laser_to_map_transform.getOrigin().y();
         laser_yaw = tf::getYaw(laser_to_map_transform.getRotation());
         ROS_INFO("get lidar pose:  x: %f, y: %f, yaw: %f",laser_x,laser_y,laser_yaw);
     }
@@ -730,9 +734,8 @@ public:
         tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
         PLICP_pose_yaw = yaw;
         ROS_INFO("PLICP Pose: x=%f, y=%f, theta=%f",PLICP_pose_x,PLICP_pose_y,PLICP_pose_yaw);
-
+        
         //get new odom to map and broadcast it
-        tf_listener_odom();
         odom_to_map = new_base_to_map*odom_to_base_link;
         tf2::Transform tf2_odom_to_map;
         geometry_msgs::Pose odom_pose_in_map;
@@ -746,6 +749,7 @@ public:
         tf2::convert(tf2_odom_to_map, odom_to_map_tf_stamped.transform);
         br.sendTransform(odom_to_map_tf_stamped);
         ROS_INFO("odom_to_map has been corrected\n");
+        
     }
 
     void PLICP()
@@ -843,6 +847,7 @@ public:
         init_pose.pose.covariance[6*5+5] = cov_yawyaw;
         //publish new pose to reinitialize the AMCL
         amcl_init_pub.publish(init_pose);
+        ROS_INFO("AMCL re-initialization complete");
     }
 
     void amcl_path_publisher(geometry_msgs::PoseWithCovarianceStamped::ConstPtr poseMsg)
@@ -867,7 +872,7 @@ public:
         myQuaternion.setRPY(0, 0, PLICP_pose_yaw);
         myQuaternion.normalize();
 
-        pose.header.stamp = ros::Time::now();
+        pose.header.stamp = scan_time_stamp;
         pose.header.frame_id = "map";
 
         pose.pose.position.x = PLICP_pose_x;
@@ -898,7 +903,7 @@ public:
         
         //pub path of PLICP poses
         PLICP_path.header.frame_id = "map";
-        PLICP_path.header.stamp = ros::Time::now();
+        PLICP_path.header.stamp = scan_time_stamp;
         PLICP_path.poses.push_back(pose);
         PLICP_path_pub.publish(PLICP_path);
     }
@@ -914,6 +919,7 @@ public:
         ranges = laser_scan->ranges;
         range_max = laser_scan->range_max;
         range_min = laser_scan->range_min;
+        scan_time_stamp = laser_scan->header.stamp;
 
         //cout << "Ranges size: " << laser_scan->ranges.size()<<endl;
         //ROS_INFO("Received Laser Scan ranges size=%d", ranges.size());
@@ -925,6 +931,7 @@ public:
         if(!amcl_init)
         {   
             last_amcl_time = ros::Time::now();
+            amcl_receive_now = last_amcl_time;
             amcl_init = true;
         }
         else
@@ -942,14 +949,16 @@ public:
         amcl_pose_x = poseMsg->pose.pose.position.x;
         amcl_pose_y = poseMsg->pose.pose.position.y;
         amcl_pose_yaw = tf::getYaw(poseMsg->pose.pose.orientation);
-        ROS_INFO("Received amcl Pose: x=%f, y=%f, theta=%f",amcl_pose_x,amcl_pose_y,amcl_pose_yaw);
-
+        amcl_time_stamp = poseMsg->header.stamp;
+        ROS_INFO("Received amcl Pose: x=%f, y=%f, theta=%f\n",amcl_pose_x,amcl_pose_y,amcl_pose_yaw);
+        ROS_INFO("Received amcl time: %f\n",amcl_time_stamp.toSec());
+        ROS_INFO("Scan timestamp: %f\n",scan_time_stamp.toSec());
         //get grid map use mapserver service
         ros::NodeHandle nh;
         ros::ServiceClient map_client = nh.serviceClient<nav_msgs::GetMap>("static_map");
 
         nav_msgs::GetMap mapsrv;
-        if (map_client.call(mapsrv))
+        if (!map_received && map_client.call(mapsrv))
         {
             //store the grid map
             grid_map = mapsrv.response.map;
@@ -959,8 +968,9 @@ public:
             grid_width = grid_map.info.width;
             ROS_INFO("Received Map: width=%d, height=%d, resolution=%.3f\n", grid_map.info.width, grid_map.info.height, grid_map.info.resolution);
             ROS_INFO("Received Map: origin_x=%.3f, origin_y=%.3f\n", grid_origin_x, grid_origin_y);
+            map_received = true;
         }
-        else
+        else if(!map_received && !map_client.call(mapsrv))
         {
             ROS_ERROR("Failed to call static_map service");
         }
@@ -977,7 +987,7 @@ public:
 
         //create the vitual point cloud
         tf_listener_laser();
-
+        tf_listener_odom();
         virtual_pc = create_vitual_scan_pc();
         ROS_INFO("Received virtual_pc");
         sensor_msgs::PointCloud2 virtual_pc_msg;
@@ -1007,13 +1017,15 @@ public:
         file_icp_time << PLICP_start_time.toSec() << "," << PLICP_end_time.toSec() << "," << PLICP_time_used.toSec() << "\n";
         ROS_INFO("PLICP time used : %f (s)\n", PLICP_time_used.toSec());
         
+        /*
         //reinitialize the AMCL
         re_init_count++;
         if(re_init_count >25)
         {
             amcl_reinit();
             re_init_count = 0;
-        } 
+        }
+        */
         //draw the path of AMCL+PLICP and origin AMCL
         PLICP_pose_path_publisher();
         amcl_path_publisher(poseMsg);

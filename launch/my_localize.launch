@@ -3,9 +3,6 @@
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
 
     <param name="/use_sim_time" value="true" />
-    <param name="amcl_time_save_path" type="string" value="$(find accurate_localization)/result/amcl_time.csv" />
-    <param name="ICP_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_count_time.csv" />
-    <param name="PLICP_pose_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_pose_pub_time.csv" />
     
     <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/nmap_4.yaml"/> -->
     <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/new_1.yaml"/> -->
@@ -101,5 +98,16 @@
         <rosparam command="load" file="$(find sdc)/config/ekf.yaml" />
         <remap from="odometry/filtered" to="amcl_ekf"/>
     </node> -->
-    <node pkg="accurate_localization" type="scan" name="scan_PLICP" output="screen"/>
+
+    <node pkg="accurate_localization" type="scan" name="scan_PLICP" output="screen">
+        <param name="amcl_time_save_path" type="string" value="$(find accurate_localization)/result/amcl_time.csv" />
+        <param name="ICP_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_count_time.csv" />
+        <param name="PLICP_pose_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_pose_pub_time.csv" />
+        <param name="re_initial_cov_xx" value="0.25"/>
+        <param name="re_initial_cov_yy" value="0.25"/>
+        <param name="re_initial_cov_aa" value="0.069"/>
+    </node>
+
+    <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
+    </node>
 </launch>

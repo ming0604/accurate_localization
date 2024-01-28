@@ -6,14 +6,20 @@ Panels:
       Expanded:
         - /Global Options1
         - /Odometry1/Shape1
+        - /Odometry2
         - /Odometry2/Shape1
         - /PoseWithCovariance1
+        - /PoseWithCovariance1/Covariance1
+        - /TF1
+        - /Odometry3
         - /Odometry4
         - /PointCloud25
         - /PointCloud26
         - /LaserScan2
         - /Path1
         - /Path2
+        - /Pose2
+        - /Pose3
       Splitter Ratio: 0.5147058963775635
     Tree Height: 719
   - Class: rviz/Selection
@@ -167,7 +173,7 @@ Visualization Manager:
           Value: true
         Value: false
       Enabled: true
-      Keep: 10
+      Keep: 2
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
@@ -188,7 +194,7 @@ Visualization Manager:
       Axes Length: 1
       Axes Radius: 0.10000000149011612
       Class: rviz/PoseWithCovariance
-      Color: 255; 25; 0
+      Color: 115; 210; 22
       Covariance:
         Orientation:
           Alpha: 0.5
@@ -211,7 +217,7 @@ Visualization Manager:
       Queue Size: 10
       Shaft Length: 1
       Shaft Radius: 0.05000000074505806
-      Shape: Axes
+      Shape: Arrow
       Topic: /amcl_pose
       Unreliable: false
       Value: true
@@ -221,7 +227,7 @@ Visualization Manager:
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
-        All Enabled: false
+        All Enabled: true
         back_laser:
           Value: true
         back_laser_mount:
@@ -365,8 +371,8 @@ Visualization Manager:
                   t265_gyro_frame:
                     t265_imu_optical_frame:
                       {}
-            vive_odom:
-              {}
+          vive_odom:
+            {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -622,7 +628,7 @@ Visualization Manager:
       Color: 239; 41; 41
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -637,7 +643,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -650,7 +656,7 @@ Visualization Manager:
       Color: 196; 160; 0
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -665,7 +671,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -697,7 +703,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 25; 255; 0
+      Color: 115; 210; 22
       Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -742,6 +748,38 @@ Visualization Manager:
       Topic: /PLICP_path
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz/Pose
+      Color: 196; 160; 0
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: Pose
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /base_gt
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz/Pose
+      Color: 239; 41; 41
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: Pose
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /PLICP_pose
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -770,7 +808,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 12.764983177185059
+      Distance: 18.501890182495117
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -778,17 +816,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 1.754805088043213
-        Y: 2.614445686340332
-        Z: -0.37688368558883667
+        X: 3.2869060039520264
+        Y: 7.003409385681152
+        Z: -1.174443244934082
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 0.9797968864440918
       Target Frame: <Fixed Frame>
-      Yaw: 1.5772110223770142
+      Yaw: 1.5422110557556152
     Saved: ~
 Window Geometry:
   Displays:
