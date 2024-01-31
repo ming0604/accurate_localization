@@ -17,6 +17,8 @@
 #include <tf2/utils.h>
 #include <sensor_msgs/PointCloud2.h>
 
+
+using namespace std;
 class base_gt
 {
 private:
@@ -35,16 +37,22 @@ private:
     tf::Transform vive_to_viveodom_transform_tf;
     double vive_x;
     double vive_y;
+    double vive_z;
     double vive_yaw;
-
     bool getvivetf;
+
     geometry_msgs::TransformStamped base_to_vive;
     geometry_msgs::TransformStamped vive_odom_to_map;
     tf2::Transform base_to_vive_tf2;
     tf2::Transform vive_odom_to_map_tf2;
     tf2::Transform base_to_map_tf2;
     geometry_msgs::Transform base_to_map;
+
     geometry_msgs::PoseStamped base_gt_pose;
+
+    tf::Transform base_to_vive_gt_tf;
+    double base_gt_offset_x;
+    double base_gt_offset_y;
 public:
     base_gt(ros::NodeHandle nh): tfListener(tfBuffer)
     {
@@ -97,6 +105,7 @@ public:
         base_gt_pose.header.frame_id = "map";
         base_gt_pub.publish(base_gt_pose);
         */
+       
         if(!getvivetf)
         {
             try
@@ -117,11 +126,17 @@ public:
         vive_to_viveodom_transform_tf = createTf_from_XYyaw(vive_x,vive_y,vive_yaw);
         
         /*
-        tf::Vector3 translation(viveMsg->pose.pose.position.x, viveMsg->pose.pose.position.y, viveMsg->pose.pose.position.z);
+        vive_to_viveodom_transform_tf.setOrigin(tf::Vector3(vive_x,vive_y,vive_z));
         tf::Quaternion rotation(viveMsg->pose.pose.orientation.x, viveMsg->pose.pose.orientation.y, viveMsg->pose.pose.orientation.z, viveMsg->pose.pose.orientation.w);
-        tf::Transform transform(rotation, translation);
-        vive_to_viveodom_transform_tf = transform;
+        vive_to_viveodom_transform_tf.setRotation(rotation);
+        cout << "x:" << vive_to_viveodom_transform_tf.getOrigin().x() << " y:" << vive_to_viveodom_transform_tf.getOrigin().y()
+        << " z:" << vive_to_viveodom_transform_tf.getOrigin().z() << endl;
+        double roll, pitch, yaw;;
+        tf::Matrix3x3 matrix(vive_to_viveodom_transform_tf.getRotation());
+        matrix.getRPY(roll, pitch, yaw);
+        cout<< "pitch: " << pitch << " roll: " << roll << " yaw: " << yaw << endl;
         */
+
         base_to_map_tf = vive_odom_to_map_tf*vive_to_viveodom_transform_tf*base_to_vive_tf;
         
         base_gt_pose.pose.position.x = base_to_map_tf.getOrigin().x();
@@ -137,8 +152,14 @@ public:
         base_gt_pose.header.frame_id = "map";
         base_gt_pub.publish(base_gt_pose);
 
-    }
 
+        //validation
+        base_to_vive_gt_tf = vive_to_viveodom_transform_tf.inverse()*vive_odom_to_map_tf.inverse()*base_to_map_tf;
+        base_gt_offset_x = base_to_vive_gt_tf.getOrigin().x();
+        base_gt_offset_y = base_to_vive_gt_tf.getOrigin().y();
+        cout << "true offset : " << "x= " << base_to_vive_tf.getOrigin().x() <<", y= " << base_to_vive_tf.getOrigin().y() << endl;
+        cout << "estimated offset : " << "x= " << base_gt_offset_x << ", y= " << base_gt_offset_y << endl;
+    }
 };
 
 
