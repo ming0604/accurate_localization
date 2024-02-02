@@ -110,4 +110,6 @@
 
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
     </node>
+
+    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/reinit -a"/> -->
 </launch>

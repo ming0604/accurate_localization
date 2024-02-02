@@ -14,6 +14,7 @@
 #include <tf/transform_datatypes.h>
 #include "tf2/LinearMath/Transform.h"
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 #include <tf2/utils.h>
 #include <sensor_msgs/PointCloud2.h>
 
@@ -81,7 +82,7 @@ public:
         {
             try
             {
-                // 尝试获取 "target_frame" 到 "source_frame" 的坐标变换
+                // get "target_frame" to "source_frame" transformation
                 base_to_vive = tfBuffer.lookupTransform("vive_pose", "base_link", ros::Time(0));
                 vive_odom_to_map = tfBuffer.lookupTransform("map", "vive_odom", ros::Time(0));
                 tf2::convert(base_to_vive.transform,base_to_vive_tf2);
@@ -152,13 +153,14 @@ public:
         base_gt_pose.header.frame_id = "map";
         base_gt_pub.publish(base_gt_pose);
 
-
+        /*
         //validation
         base_to_vive_gt_tf = vive_to_viveodom_transform_tf.inverse()*vive_odom_to_map_tf.inverse()*base_to_map_tf;
         base_gt_offset_x = base_to_vive_gt_tf.getOrigin().x();
         base_gt_offset_y = base_to_vive_gt_tf.getOrigin().y();
         cout << "true offset : " << "x= " << base_to_vive_tf.getOrigin().x() <<", y= " << base_to_vive_tf.getOrigin().y() << endl;
         cout << "estimated offset : " << "x= " << base_gt_offset_x << ", y= " << base_gt_offset_y << endl;
+        */
     }
 };
 

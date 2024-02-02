@@ -14,6 +14,7 @@
 #include <tf/transform_datatypes.h>
 #include "tf2/LinearMath/Transform.h"
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 #include <tf2/utils.h>
 #include <sensor_msgs/PointCloud2.h>
 
@@ -25,6 +26,11 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/registration/icp.h>
 #include <pcl_ros/transforms.h>
+#include <map>
+
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
 
 #include <csm/csm_all.h> 
 using namespace CSM ;
@@ -47,6 +53,9 @@ private:
     double cov_yawyaw;
     int re_init_count = 0;
     bool map_received;
+    bool laser_to_base_received;
+    //map<ros::Time, sensor_msgs::LaserScan> scan_dic;
+    sensor_msgs::LaserScan scan_data;
 
     bool amcl_init = false;
     bool PLICP_init = false;
@@ -113,13 +122,24 @@ private:
     ros::Publisher PLICP_path_pub;
     ros::Publisher PLICP_pose_pub;
     ros::Publisher amcl_init_pub;
+    //use message_filters to ensure that the scan and pose of AMCL is at the same time
+    message_filters::Subscriber<sensor_msgs::LaserScan> scan_sub_;
+    message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> pose_sub_;
+    message_filters::TimeSynchronizer<sensor_msgs::LaserScan, geometry_msgs::PoseWithCovarianceStamped>* sync_;
 
     tf::TransformListener listener;
     //tf::TransformBroadcaster br;
     tf2_ros::TransformBroadcaster br;
-    tf::StampedTransform laser_to_map_transform;
-    tf::StampedTransform odom_to_base_link;
-    tf::StampedTransform base_link_to_laser;
+
+    tf2_ros::Buffer tfBuffer;
+    tf2_ros::TransformListener tfListener;
+    geometry_msgs::TransformStamped laser_to_base;
+    geometry_msgs::TransformStamped odom_to_base;
+    tf2::Transform odom_to_base_tf2;
+    tf2::Transform laser_to_base_tf2;
+    tf2::Transform amcl_base_to_map_tf2;
+    tf2::Transform laser_to_map_tf2;
+    tf2::Transform base_to_laser_tf2;
 
     std::string amcl_time_save_path;
     std::string ICP_time_save_path;
@@ -129,7 +149,7 @@ private:
     std::ofstream file_PLICP_pose_time;
 
 public:
-    scan_to_pc(ros::NodeHandle nh)
+    scan_to_pc(ros::NodeHandle nh): tfListener(tfBuffer)
     {   
         _nh = nh;
         InitParams();
@@ -137,10 +157,16 @@ public:
         init_cov_[1] = 0.5 * 0.5;
         init_cov_[2] = (M_PI/12.0) * (M_PI/12.0);
         map_received = false;
+        laser_to_base_received = false;
 
-        laser_scan_sub = _nh.subscribe("/scan", 1, &scan_to_pc::laserScanCallback,this);
+        //laser_scan_sub = _nh.subscribe("/scan", 2, &scan_to_pc::laserScanCallback,this);
+        //laser_scan_sub = _nh.subscribe("/amcl_scan", 2, &scan_to_pc::laserScanCallback,this);
         //subscibe amcl pose
-        poseSub = _nh.subscribe("/amcl_pose", 1, &scan_to_pc::amclposeCallback,this);
+        //poseSub = _nh.subscribe("/amcl_pose", 1, &scan_to_pc::amclposeCallback,this);
+        scan_sub_.subscribe(_nh, "/amcl_scan", 1);
+        pose_sub_.subscribe(_nh, "/amcl_pose", 1);
+        sync_ = new message_filters::TimeSynchronizer<sensor_msgs::LaserScan, geometry_msgs::PoseWithCovarianceStamped>(scan_sub_, pose_sub_, 10);
+        sync_->registerCallback(boost::bind(&scan_to_pc::amclsyncCallback, this, _1, _2));
 
         scan_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/scan_pc", 10);
         virtual_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/virtual_pc", 10);
@@ -344,30 +370,30 @@ public:
             input_.use_sigma_weights = 0;
         }    
     }
-    void tf_listener_laser()
+    void tf2_listener_laser() 
     {
         try{
-            //"map is target,laser is source"
-            listener.lookupTransform("map", "laser", ros::Time(0),laser_to_map_transform);
+            //"base_link is target,laser is source"
+            laser_to_base = tfBuffer.lookupTransform("base_link", "laser", ros::Time(0));
+            tf2::fromMsg(laser_to_base.transform,laser_to_base_tf2);
+            laser_to_base_received = true;
         }
-        catch (tf::TransformException& ex) {
+        catch (tf2::TransformException& ex) {
             ROS_ERROR("%s", ex.what());
             // 处理异常
             return;
         }
         
-        laser_x = laser_to_map_transform.getOrigin().x();
-        laser_y = laser_to_map_transform.getOrigin().y();
-        laser_yaw = tf::getYaw(laser_to_map_transform.getRotation());
-        ROS_INFO("get lidar pose:  x: %f, y: %f, yaw: %f",laser_x,laser_y,laser_yaw);
     }
-    void tf_listener_odom()
+
+    void tf2_listener_odom(ros::Time t)
     {
         try{
             //"base_link is target,odom is source"
-            listener.lookupTransform("base_link", "odom_frame", ros::Time(0),odom_to_base_link);
+            odom_to_base = tfBuffer.lookupTransform("base_link", "odom_frame", t);
+            tf2::fromMsg(odom_to_base.transform,odom_to_base_tf2);
         }
-        catch (tf::TransformException& ex) {
+        catch (tf2::TransformException& ex) {
             ROS_ERROR("%s", ex.what());
             // 处理异常
             return;
@@ -375,6 +401,52 @@ public:
     
         ROS_INFO("get odom_to_map");
     }
+
+    void get_laser_pose(geometry_msgs::Pose amcl_base_on_map)
+    {   
+        if(!laser_to_base_received)
+        {
+            tf2_listener_laser();
+        }
+
+        tf2::fromMsg(amcl_base_on_map,amcl_base_to_map_tf2);
+        //get laser to map transform
+        laser_to_map_tf2 = amcl_base_to_map_tf2*laser_to_base_tf2;
+        laser_x = laser_to_map_tf2.getOrigin().x();
+        laser_y = laser_to_map_tf2.getOrigin().y();
+        laser_yaw = tf2::getYaw(laser_to_map_tf2.getRotation());
+        ROS_INFO("get lidar pose:  x: %f, y: %f, yaw: %f",laser_x,laser_y,laser_yaw);
+    }
+
+    /*
+    void load_corres_scan(ros::Time t)
+    {
+        auto iter = scan_dic.find(t);
+        if(iter != scan_dic.end())        //find successfully
+        {   
+            scan_data = iter->second;
+            laser_angle_min = scan_data.angle_min;
+            laser_angle_max = scan_data.angle_max;
+            laser_angle_increment = scan_data.angle_increment;
+            laser_time_increment = scan_data.time_increment;
+            ranges = scan_data.ranges;
+            range_max = scan_data.range_max;
+            range_min = scan_data.range_min;
+            scan_time_stamp = scan_data.header.stamp;
+            
+            //clear the scan dictionary
+            auto it_end = iter++;
+            scan_dic.erase(scan_dic.begin(),it_end);
+            ROS_INFO("Clearing scan_dic");
+        }
+
+        else
+        {
+            ROS_ERROR("Can not find scan data at amcl timestamp");
+        }
+    }
+    */
+
     float line_fx(int x,float m)
     {
         float y;
@@ -694,11 +766,11 @@ public:
         ldp->true_pose[2] = 0.0;
     }
   
-    tf::Transform createTf_from_XYyaw(double x, double y, double theta)
+    tf2::Transform createTf_from_XYyaw(double x, double y, double theta)
     {   
-        tf::Transform transform;
-        transform.setOrigin(tf::Vector3(x, y, 0.0));
-        tf::Quaternion q;
+        tf2::Transform transform;
+        transform.setOrigin(tf2::Vector3(x, y, 0.0));
+        tf2::Quaternion q;
         q.setRPY(0.0, 0.0, theta);
         transform.setRotation(q);
         return transform;
@@ -706,41 +778,27 @@ public:
 
     void tf_correct_odom()
     {   
-        tf::Transform new_laser_to_old_laser;
-        tf::Transform new_laser_to_map;
-        tf::Transform new_base_to_map;
-        tf::Transform odom_to_map;
+        tf2::Transform new_laser_to_old_laser;
+        tf2::Transform new_laser_to_map;
+        tf2::Transform new_base_to_map;
+        tf2::Transform odom_to_map;
         //get the new laser to map transform
         new_laser_to_old_laser = createTf_from_XYyaw(laser_x_plicp, laser_y_plicp, laser_yaw_plicp);
-        new_laser_to_map = laser_to_map_transform*new_laser_to_old_laser;
+        new_laser_to_map = laser_to_map_tf2*new_laser_to_old_laser;
 
-        //get base_link to laser transform
-        try{
-            //map is target,base_link is source
-            listener.lookupTransform("laser", "base_link", ros::Time(0),base_link_to_laser);
-        }
-        catch (tf::TransformException& ex) {
-            ROS_ERROR("%s", ex.what());
-            // error
-            return;
-        }
         //find new base_link to map transform
-        new_base_to_map = new_laser_to_map*base_link_to_laser;
+        base_to_laser_tf2 = laser_to_base_tf2.inverse();
+        new_base_to_map = new_laser_to_map*base_to_laser_tf2;
         PLICP_pose_x = new_base_to_map.getOrigin().x();
         PLICP_pose_y = new_base_to_map.getOrigin().y();
-        tf::Quaternion q;
+        tf2::Quaternion q;
         q = new_base_to_map.getRotation();
-        double roll, pitch, yaw;
-        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-        PLICP_pose_yaw = yaw;
+        PLICP_pose_yaw = tf2::getYaw(q);
         ROS_INFO("PLICP Pose: x=%f, y=%f, theta=%f",PLICP_pose_x,PLICP_pose_y,PLICP_pose_yaw);
         
         //get new odom to map and broadcast it
-        odom_to_map = new_base_to_map*odom_to_base_link;
         tf2::Transform tf2_odom_to_map;
-        geometry_msgs::Pose odom_pose_in_map;
-        tf::poseTFToMsg(odom_to_map, odom_pose_in_map);
-        tf2::convert(odom_pose_in_map, tf2_odom_to_map);
+        tf2_odom_to_map = new_base_to_map*odom_to_base_tf2;
 
         geometry_msgs::TransformStamped odom_to_map_tf_stamped;
         odom_to_map_tf_stamped.header.frame_id = "map";
@@ -749,7 +807,6 @@ public:
         tf2::convert(tf2_odom_to_map, odom_to_map_tf_stamped.transform);
         br.sendTransform(odom_to_map_tf_stamped);
         ROS_INFO("odom_to_map has been corrected\n");
-        
     }
 
     void PLICP()
@@ -908,25 +965,21 @@ public:
         PLICP_path_pub.publish(PLICP_path);
     }
 
-
-    void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& laser_scan)
-    {
+    
+    void amclsyncCallback(const sensor_msgs::LaserScan::ConstPtr& laser_scan, const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& poseMsg)
+    {   
         laser_angle_min = laser_scan->angle_min;
         laser_angle_max = laser_scan->angle_max;
         laser_angle_increment = laser_scan->angle_increment;
         laser_time_increment = laser_scan->time_increment;
-        ("Received Laser Scan with angle min: %f, angle max: %f", laser_scan->angle_min, laser_scan->angle_max);
+        ROS_INFO("Received Laser Scan with angle min: %f, angle max: %f", laser_scan->angle_min, laser_scan->angle_max);
+        
         ranges = laser_scan->ranges;
         range_max = laser_scan->range_max;
         range_min = laser_scan->range_min;
         scan_time_stamp = laser_scan->header.stamp;
-
-        //cout << "Ranges size: " << laser_scan->ranges.size()<<endl;
-        //ROS_INFO("Received Laser Scan ranges size=%d", ranges.size());
-    }
-
-    void amclposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& poseMsg)
-    {
+        ROS_INFO("Received Laser Scan timestamp: %f", scan_time_stamp.toSec());
+        
         //get amcl time and count duration between 2 amcl pose received
         if(!amcl_init)
         {   
@@ -951,8 +1004,9 @@ public:
         amcl_pose_yaw = tf::getYaw(poseMsg->pose.pose.orientation);
         amcl_time_stamp = poseMsg->header.stamp;
         ROS_INFO("Received amcl Pose: x=%f, y=%f, theta=%f\n",amcl_pose_x,amcl_pose_y,amcl_pose_yaw);
-        ROS_INFO("Received amcl time: %f\n",amcl_time_stamp.toSec());
-        ROS_INFO("Scan timestamp: %f\n",scan_time_stamp.toSec());
+        ROS_INFO("amcl timestamp: %f\n",amcl_time_stamp.toSec());
+        ROS_INFO("Received amcl time: %f\n",ros::Time::now().toSec());
+        
         //get grid map use mapserver service
         ros::NodeHandle nh;
         ros::ServiceClient map_client = nh.serviceClient<nav_msgs::GetMap>("static_map");
@@ -975,30 +1029,38 @@ public:
             ROS_ERROR("Failed to call static_map service");
         }
 
+        //load the scan corresponding to the amcl_pose timestamp
+        //load_corres_scan(amcl_time_stamp);
+        ROS_INFO("Scan timestamp: %f\n",scan_time_stamp.toSec());
+
+        if(scan_time_stamp!=amcl_time_stamp)
+        {
+            ROS_WARN("The scan timestamp is different from the amcl timestamp");
+        }
         //create the scan point cloud
         scan_pc = create_scan_pc();
         ROS_INFO("Received scan_pc");
         sensor_msgs::PointCloud2 scan_pc_msg;
         pcl::toROSMsg(*scan_pc, scan_pc_msg);
-        scan_pc_msg.header.stamp = ros::Time::now();
+        scan_pc_msg.header.stamp = scan_time_stamp;
         scan_pc_msg.header.frame_id = "laser";
         scan_pc_pub.publish(scan_pc_msg);
         ROS_INFO("scan_pc published");
 
         //create the vitual point cloud
-        tf_listener_laser();
-        tf_listener_odom();
+        get_laser_pose(poseMsg->pose.pose);
+        tf2_listener_odom(amcl_time_stamp);
         virtual_pc = create_vitual_scan_pc();
         ROS_INFO("Received virtual_pc");
         sensor_msgs::PointCloud2 virtual_pc_msg;
         pcl::toROSMsg(*virtual_pc, virtual_pc_msg);
-        virtual_pc_msg.header.stamp = ros::Time::now();
+        virtual_pc_msg.header.stamp = scan_time_stamp;
         virtual_pc_msg.header.frame_id = "map";
         virtual_pc_pub.publish(virtual_pc_msg);
         ROS_INFO("virtual_pc published");
         
         //create the virtual scan
-        virtual_scan.header.stamp = ros::Time::now();
+        virtual_scan.header.stamp = scan_time_stamp;
         virtual_scan.header.frame_id = "laser";
         virtual_scan.angle_min = laser_angle_min;
         virtual_scan.angle_max = laser_angle_max;
