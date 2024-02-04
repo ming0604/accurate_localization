@@ -61,15 +61,15 @@ private:
     bool PLICP_init = false;
     ros::Time scan_time_stamp;
     ros::Time amcl_time_stamp;
-    ros::Time PLICP_start_time;
-    ros::Time amcl_receive_now;
-    ros::Time last_amcl_time;
-    ros::Time PLICP_end_time;
-    ros::Time last_PLICP_time;
-    ros::Time PLICP_pub_now;
-    ros::Duration PLICP_time_used; 
-    ros::Duration amcl_pub_duration;
-    ros::Duration PLICP_pub_duration; 
+    ros::WallTime PLICP_start_time;
+    ros::WallTime amcl_receive_now;
+    ros::WallTime last_amcl_time;
+    ros::WallTime PLICP_end_time;
+    ros::WallTime last_PLICP_time;
+    ros::WallTime PLICP_pub_now;
+    ros::WallDuration PLICP_time_used; 
+    ros::WallDuration amcl_pub_duration;
+    ros::WallDuration PLICP_pub_duration; 
    
 
     nav_msgs::OccupancyGrid grid_map;
@@ -127,7 +127,7 @@ private:
     message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> pose_sub_;
     message_filters::TimeSynchronizer<sensor_msgs::LaserScan, geometry_msgs::PoseWithCovarianceStamped>* sync_;
 
-    tf::TransformListener listener;
+    //tf::TransformListener listener;
     //tf::TransformBroadcaster br;
     tf2_ros::TransformBroadcaster br;
 
@@ -183,7 +183,7 @@ public:
         _nh.param("re_initial_cov_yy", cov_yy, init_cov_[1]);
         _nh.param("re_initial_cov_aa", cov_yawyaw, init_cov_[2]);
     
-
+        
         file_amcl_time.open(amcl_time_save_path);
         file_amcl_time << "last time, this time, pub duration\n";
         file_icp_time.open(ICP_time_save_path);
@@ -858,7 +858,7 @@ public:
             laser_x_plicp = output_.x[0];
             laser_y_plicp = output_.x[1];
             laser_yaw_plicp = output_.x[2];
-
+            //ROS_WARN("laser_x_plicp: %f, laser_y_plicp: %f, laser_yaw_plicp: %f", laser_x_plicp, laser_y_plicp, laser_yaw_plicp);
             //use the new laser pose to correct tf tree relationships
             tf_correct_odom();
 
@@ -942,16 +942,17 @@ public:
         pose.pose.orientation.w = myQuaternion.getW();
         //pub pose after PLICP
         PLICP_pose_pub.publish(pose);
+        ROS_WARN("PLICP pub time: %f",ros::Time::now().toSec());
 
         //store the pub time between 2 PLICP poses
         if(!PLICP_init)
         {   
-            last_PLICP_time = ros::Time::now();
+            last_PLICP_time = ros::WallTime::now();
             PLICP_init = true;
         }
         else
         {   
-            PLICP_pub_now = ros::Time::now();
+            PLICP_pub_now = ros::WallTime::now();
             PLICP_pub_duration = PLICP_pub_now- last_PLICP_time;
             //store the time data
             file_PLICP_pose_time << last_PLICP_time.toSec() << "," << PLICP_pub_now.toSec() << "," << PLICP_pub_duration.toSec() << "\n";
@@ -983,13 +984,13 @@ public:
         //get amcl time and count duration between 2 amcl pose received
         if(!amcl_init)
         {   
-            last_amcl_time = ros::Time::now();
+            last_amcl_time = ros::WallTime::now();
             amcl_receive_now = last_amcl_time;
             amcl_init = true;
         }
         else
         {
-            amcl_receive_now = ros::Time::now();
+            amcl_receive_now = ros::WallTime::now();
             amcl_pub_duration = amcl_receive_now - last_amcl_time;
             //store the time data
             file_amcl_time << last_amcl_time.toSec() << "," << amcl_receive_now.toSec() << "," << amcl_pub_duration.toSec() << "\n";
@@ -998,6 +999,7 @@ public:
         
 
         PLICP_start_time = amcl_receive_now;
+        ROS_WARN("PLICP start time : %f ", PLICP_start_time.toSec());
         //get the amcl global pose
         amcl_pose_x = poseMsg->pose.pose.position.x;
         amcl_pose_y = poseMsg->pose.pose.position.y;
@@ -1074,7 +1076,10 @@ public:
         
         //do PLICP to correct the pose of AMCL
         PLICP();
-        PLICP_end_time = ros::Time::now();
+        //draw the path of AMCL+PLICP and origin AMCL
+        PLICP_pose_path_publisher();
+        amcl_path_publisher(poseMsg);
+        PLICP_end_time = ros::WallTime::now();
         PLICP_time_used =  PLICP_end_time - PLICP_start_time;
         file_icp_time << PLICP_start_time.toSec() << "," << PLICP_end_time.toSec() << "," << PLICP_time_used.toSec() << "\n";
         ROS_INFO("PLICP time used : %f (s)\n", PLICP_time_used.toSec());
@@ -1082,23 +1087,21 @@ public:
         /*
         //reinitialize the AMCL
         re_init_count++;
-        if(re_init_count >25)
+        if(re_init_count >20)
         {
             amcl_reinit();
             re_init_count = 0;
         }
-        */
-        //draw the path of AMCL+PLICP and origin AMCL
-        PLICP_pose_path_publisher();
-        amcl_path_publisher(poseMsg);
         
+        */
+
     }
 };
 
 int main(int argc, char** argv) 
 {
     ros::init (argc, argv, "scan");
-    ros::NodeHandle nh;
+    ros::NodeHandle nh("~");
     scan_to_pc scan_to_pc(nh);
 
     ros::spin();

@@ -127,6 +127,9 @@ public:
         vive_to_viveodom_transform_tf = createTf_from_XYyaw(vive_x,vive_y,vive_yaw);
         
         /*
+        vive_x = viveMsg->pose.pose.position.x;
+        vive_y = viveMsg->pose.pose.position.y;
+        vive_z = viveMsg->pose.pose.position.z;
         vive_to_viveodom_transform_tf.setOrigin(tf::Vector3(vive_x,vive_y,vive_z));
         tf::Quaternion rotation(viveMsg->pose.pose.orientation.x, viveMsg->pose.pose.orientation.y, viveMsg->pose.pose.orientation.z, viveMsg->pose.pose.orientation.w);
         vive_to_viveodom_transform_tf.setRotation(rotation);
