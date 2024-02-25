@@ -796,6 +796,7 @@ public:
         PLICP_pose_yaw = tf2::getYaw(q);
         ROS_INFO("PLICP Pose: x=%f, y=%f, theta=%f",PLICP_pose_x,PLICP_pose_y,PLICP_pose_yaw);
         
+        /*
         //get new odom to map and broadcast it
         tf2::Transform tf2_odom_to_map;
         tf2_odom_to_map = new_base_to_map*odom_to_base_tf2;
@@ -807,6 +808,7 @@ public:
         tf2::convert(tf2_odom_to_map, odom_to_map_tf_stamped.transform);
         br.sendTransform(odom_to_map_tf_stamped);
         ROS_INFO("odom_to_map has been corrected\n");
+        */
     }
 
     void PLICP()
