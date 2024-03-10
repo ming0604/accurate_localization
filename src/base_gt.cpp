@@ -26,6 +26,7 @@ private:
     ros::NodeHandle _nh;
     ros::Subscriber vive_gt_sub;
     ros::Publisher base_gt_pub;
+    ros::Publisher base_gt_path_pub;
 
     tf2::Transform vive_to_viveodom_transform;
     tf2_ros::Buffer tfBuffer;
@@ -50,6 +51,7 @@ private:
     geometry_msgs::Transform base_to_map;
 
     geometry_msgs::PoseStamped base_gt_pose;
+    nav_msgs::Path base_gt_path;
 
     tf::Transform base_to_vive_gt_tf;
     double base_gt_offset_x;
@@ -60,6 +62,7 @@ public:
         _nh = nh;
         vive_gt_sub = _nh.subscribe("/gt", 5, &base_gt::vivecallback, this);
         base_gt_pub = _nh.advertise<geometry_msgs::PoseStamped>("/base_gt",1);
+        base_gt_path_pub = _nh.advertise<nav_msgs::Path>("/base_gt_path", 1);
         getvivetf = false;
     }
     ~base_gt()
@@ -155,7 +158,12 @@ public:
         base_gt_pose.header.stamp = viveMsg->header.stamp;
         base_gt_pose.header.frame_id = "map";
         base_gt_pub.publish(base_gt_pose);
-
+        
+        //publish base_gt path
+        base_gt_path.header.frame_id = "map";
+        base_gt_path.header.stamp = viveMsg->header.stamp;
+        base_gt_path.poses.push_back(base_gt_pose);
+        base_gt_path_pub.publish(base_gt_path);
         /*
         //validation
         base_to_vive_gt_tf = vive_to_viveodom_transform_tf.inverse()*vive_odom_to_map_tf.inverse()*base_to_map_tf;
