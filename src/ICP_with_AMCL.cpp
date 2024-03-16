@@ -36,7 +36,12 @@
 using namespace CSM ;
 using namespace std;
 
-class scan_to_pc
+enum ICP_method{
+    ICP,
+    PLICP
+};
+
+class ICP_with_AMCL
 {
 private:
     double amcl_pose_x;
@@ -58,18 +63,18 @@ private:
     sensor_msgs::LaserScan scan_data;
 
     bool amcl_init = false;
-    bool PLICP_init = false;
+    bool scan_matching_init = false;
     ros::Time scan_time_stamp;
     ros::Time amcl_time_stamp;
-    ros::WallTime PLICP_start_time;
+    ros::WallTime scan_matching_start_time;
     ros::WallTime amcl_receive_now;
     ros::WallTime last_amcl_time;
-    ros::WallTime PLICP_end_time;
-    ros::WallTime last_PLICP_time;
-    ros::WallTime PLICP_pub_now;
-    ros::WallDuration PLICP_time_used; 
+    ros::WallTime scan_matching_end_time;
+    ros::WallTime last_scan_matching_time;
+    ros::WallTime scan_matching_pub_now;
+    ros::WallDuration scan_matching_time_used; 
     ros::WallDuration amcl_pub_duration;
-    ros::WallDuration PLICP_pub_duration; 
+    ros::WallDuration scan_matching_pub_duration; 
    
 
     nav_msgs::OccupancyGrid grid_map;
@@ -142,14 +147,17 @@ private:
     tf2::Transform base_to_laser_tf2;
 
     std::string amcl_time_save_path;
-    std::string ICP_time_save_path;
-    std::string PLICP_pose_time_save_path;
+    std::string scan_matching_time_save_path;
+    std::string scan_matching_pose_time_save_path;
+    std::string scan_match_method_Str;
     std::ofstream file_amcl_time;
-    std::ofstream file_icp_time;
-    std::ofstream file_PLICP_pose_time;
+    std::ofstream file_scan_matching_time;
+    std::ofstream file_scan_matching_pose_time;
+
+    ICP_method method;
 
 public:
-    scan_to_pc(ros::NodeHandle nh): tfListener(tfBuffer)
+    ICP_with_AMCL(ros::NodeHandle nh): tfListener(tfBuffer)
     {   
         _nh = nh;
         InitParams();
@@ -166,7 +174,7 @@ public:
         scan_sub_.subscribe(_nh, "/amcl_scan", 1);
         pose_sub_.subscribe(_nh, "/amcl_pose", 1);
         sync_ = new message_filters::TimeSynchronizer<sensor_msgs::LaserScan, geometry_msgs::PoseWithCovarianceStamped>(scan_sub_, pose_sub_, 10);
-        sync_->registerCallback(boost::bind(&scan_to_pc::amclsyncCallback, this, _1, _2));
+        sync_->registerCallback(boost::bind(&ICP_with_AMCL::amclsyncCallback, this, _1, _2));
 
         scan_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/scan_pc", 10);
         virtual_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/virtual_pc", 10);
@@ -177,26 +185,42 @@ public:
         amcl_init_pub = _nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
 
         _nh.param<string>("amcl_time_save_path", amcl_time_save_path,"/Default/path");
-        _nh.param<string>("ICP_time_save_path", ICP_time_save_path,"/Default/path");
-        _nh.param<string>("PLICP_pose_time_save_path", PLICP_pose_time_save_path,"/Default/path");
+        _nh.param<string>("scan_matching_time_save_path", scan_matching_time_save_path,"/Default/path");
+        _nh.param<string>("scan_matching_pose_time_save_path", scan_matching_pose_time_save_path,"/Default/path");
         _nh.param("re_initial_cov_xx", cov_xx , init_cov_[0]);
         _nh.param("re_initial_cov_yy", cov_yy, init_cov_[1]);
         _nh.param("re_initial_cov_aa", cov_yawyaw, init_cov_[2]);
-    
+        _nh.param("scan_match_method", scan_match_method_Str ,std::string("PLICP"));
+        
+        if(scan_match_method_Str == "ICP")
+        {
+            method = ICP;
+        }
+        else if(scan_match_method_Str == "PLICP")
+        {
+            method = PLICP;
+        }
+        else
+        {
+            ROS_WARN("Unknown laser model type \"%s\"; defaulting to likelihood_field model",
+            scan_match_method_Str .c_str());
+            method = PLICP;
+        }
         
         file_amcl_time.open(amcl_time_save_path);
         file_amcl_time << "last time, this time, pub duration\n";
-        file_icp_time.open(ICP_time_save_path);
-        file_icp_time << "start time, end time, time duration\n";
-        file_PLICP_pose_time.open(PLICP_pose_time_save_path);
-        file_PLICP_pose_time << "last time, this time, pub duration\n";
+        file_scan_matching_time.open(scan_matching_time_save_path);
+        file_scan_matching_time << "start time, end time, time duration\n";
+        file_scan_matching_pose_time.open(scan_matching_pose_time_save_path);
+        file_scan_matching_pose_time << "last time, this time, pub duration\n";
     }
     
-    ~scan_to_pc()
+    ~ICP_with_AMCL()
     {
         ROS_WARN("Exit Localization");
         file_amcl_time.close();
-        file_icp_time.close();
+        file_scan_matching_time.close();
+        file_scan_matching_pose_time.close();
     }
 
     void InitParams()
@@ -417,7 +441,7 @@ public:
         laser_yaw = tf2::getYaw(laser_to_map_tf2.getRotation());
         ROS_INFO("get lidar pose:  x: %f, y: %f, yaw: %f",laser_x,laser_y,laser_yaw);
     }
-
+   
     /*
     void load_corres_scan(ros::Time t)
     {
@@ -811,7 +835,7 @@ public:
         */
     }
 
-    void PLICP()
+    void do_PLICP()
     {   
         LDP true_scan_ldp;
         LDP virtual_scan_ldp;
@@ -947,18 +971,18 @@ public:
         ROS_WARN("PLICP pub time: %f",ros::Time::now().toSec());
 
         //store the pub time between 2 PLICP poses
-        if(!PLICP_init)
+        if(!scan_matching_init)
         {   
-            last_PLICP_time = ros::WallTime::now();
-            PLICP_init = true;
+            last_scan_matching_time = ros::WallTime::now();
+            scan_matching_init = true;
         }
         else
         {   
-            PLICP_pub_now = ros::WallTime::now();
-            PLICP_pub_duration = PLICP_pub_now- last_PLICP_time;
+            scan_matching_pub_now = ros::WallTime::now();
+            scan_matching_pub_duration = scan_matching_pub_now- last_scan_matching_time;
             //store the time data
-            file_PLICP_pose_time << last_PLICP_time.toSec() << "," << PLICP_pub_now.toSec() << "," << PLICP_pub_duration.toSec() << "\n";
-            last_PLICP_time = PLICP_pub_now;
+            file_scan_matching_pose_time << last_scan_matching_time.toSec() << "," << scan_matching_pub_now.toSec() << "," << scan_matching_pub_duration.toSec() << "\n";
+            last_scan_matching_time = scan_matching_pub_now;
         }
         
         //pub path of PLICP poses
@@ -968,7 +992,7 @@ public:
         PLICP_path_pub.publish(PLICP_path);
     }
 
-    
+
     void amclsyncCallback(const sensor_msgs::LaserScan::ConstPtr& laser_scan, const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& poseMsg)
     {   
         laser_angle_min = laser_scan->angle_min;
@@ -1000,8 +1024,8 @@ public:
         }
         
 
-        PLICP_start_time = amcl_receive_now;
-        ROS_WARN("PLICP start time : %f ", PLICP_start_time.toSec());
+        scan_matching_start_time = amcl_receive_now;
+        ROS_WARN("PLICP start time : %f ", scan_matching_start_time.toSec());
         //get the amcl global pose
         amcl_pose_x = poseMsg->pose.pose.position.x;
         amcl_pose_y = poseMsg->pose.pose.position.y;
@@ -1027,6 +1051,7 @@ public:
             ROS_INFO("Received Map: width=%d, height=%d, resolution=%.3f\n", grid_map.info.width, grid_map.info.height, grid_map.info.resolution);
             ROS_INFO("Received Map: origin_x=%.3f, origin_y=%.3f\n", grid_origin_x, grid_origin_y);
             map_received = true;
+
         }
         else if(!map_received && !map_client.call(mapsrv))
         {
@@ -1050,41 +1075,65 @@ public:
         scan_pc_msg.header.frame_id = "laser";
         scan_pc_pub.publish(scan_pc_msg);
         ROS_INFO("scan_pc published");
+        
+        switch(method)
+        {
+            case ICP:
+            {
+                //load pointcloud map
+                //load_pc_map();
+                // Create an ICP object
+                pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+                icp.setMaxCorrespondenceDistance (2.5);
+                icp.setMaximumIterations (100);
+                icp.setTransformationEpsilon (1e-5);
+                icp.setEuclideanFitnessEpsilon(1e-5);
 
-        //create the vitual point cloud
-        get_laser_pose(poseMsg->pose.pose);
-        tf2_listener_odom(amcl_time_stamp);
-        virtual_pc = create_vitual_scan_pc();
-        ROS_INFO("Received virtual_pc");
-        sensor_msgs::PointCloud2 virtual_pc_msg;
-        pcl::toROSMsg(*virtual_pc, virtual_pc_msg);
-        virtual_pc_msg.header.stamp = scan_time_stamp;
-        virtual_pc_msg.header.frame_id = "map";
-        virtual_pc_pub.publish(virtual_pc_msg);
-        ROS_INFO("virtual_pc published");
+                break;
+            }
+    
+            case PLICP:
+            {
+                //create the vitual point cloud
+                get_laser_pose(poseMsg->pose.pose);
+                tf2_listener_odom(amcl_time_stamp);
+                virtual_pc = create_vitual_scan_pc();
+                ROS_INFO("Received virtual_pc");
+                sensor_msgs::PointCloud2 virtual_pc_msg;
+                pcl::toROSMsg(*virtual_pc, virtual_pc_msg);
+                virtual_pc_msg.header.stamp = scan_time_stamp;
+                virtual_pc_msg.header.frame_id = "map";
+                virtual_pc_pub.publish(virtual_pc_msg);
+                ROS_INFO("virtual_pc published");
+                
+                //create the virtual scan
+                virtual_scan.header.stamp = scan_time_stamp;
+                virtual_scan.header.frame_id = "laser";
+                virtual_scan.angle_min = laser_angle_min;
+                virtual_scan.angle_max = laser_angle_max;
+                virtual_scan.angle_increment = laser_angle_increment;
+                virtual_scan.time_increment = laser_time_increment;
+                virtual_scan.range_min = range_min;
+                virtual_scan.range_max = range_max;
+                virtual_scan.ranges = virtual_ranges;
+                virtual_scan_pub.publish(virtual_scan);
+                ROS_INFO("virtual_scan published");
+                
+                //do PLICP to correct the pose of AMCL
+                do_PLICP();
+                //draw the path of AMCL+PLICP and origin AMCL
+                PLICP_pose_path_publisher();
+                
+                break;
+            }
+                
+        }
         
-        //create the virtual scan
-        virtual_scan.header.stamp = scan_time_stamp;
-        virtual_scan.header.frame_id = "laser";
-        virtual_scan.angle_min = laser_angle_min;
-        virtual_scan.angle_max = laser_angle_max;
-        virtual_scan.angle_increment = laser_angle_increment;
-        virtual_scan.time_increment = laser_time_increment;
-        virtual_scan.range_min = range_min;
-        virtual_scan.range_max = range_max;
-        virtual_scan.ranges = virtual_ranges;
-        virtual_scan_pub.publish(virtual_scan);
-        ROS_INFO("virtual_scan published");
-        
-        //do PLICP to correct the pose of AMCL
-        PLICP();
-        //draw the path of AMCL+PLICP and origin AMCL
-        PLICP_pose_path_publisher();
         amcl_path_publisher(poseMsg);
-        PLICP_end_time = ros::WallTime::now();
-        PLICP_time_used =  PLICP_end_time - PLICP_start_time;
-        file_icp_time << PLICP_start_time.toSec() << "," << PLICP_end_time.toSec() << "," << PLICP_time_used.toSec() << "\n";
-        ROS_INFO("PLICP time used : %f (s)\n", PLICP_time_used.toSec());
+        scan_matching_end_time = ros::WallTime::now();
+        scan_matching_time_used =  scan_matching_end_time - scan_matching_start_time;
+        file_scan_matching_time << scan_matching_start_time.toSec() << "," << scan_matching_end_time.toSec() << "," << scan_matching_time_used.toSec() << "\n";
+        ROS_INFO("PLICP time used : %f (s)\n", scan_matching_time_used.toSec());
         
         /*
         //reinitialize the AMCL
@@ -1100,11 +1149,12 @@ public:
     }
 };
 
+
 int main(int argc, char** argv) 
 {
     ros::init (argc, argv, "scan");
     ros::NodeHandle nh("~");
-    scan_to_pc scan_to_pc(nh);
+    ICP_with_AMCL ICP_with_AMCL(nh);
 
     ros::spin();
     return 0;

@@ -99,13 +99,15 @@
         <remap from="odometry/filtered" to="amcl_ekf"/>
     </node> -->
 
-    <node pkg="accurate_localization" type="scan" name="scan_PLICP" output="screen">
+    <node pkg="accurate_localization" type="ICP_with_AMCL" name="ICP_with_AMCL" output="screen">
         <param name="amcl_time_save_path" type="string" value="$(find accurate_localization)/result/amcl_time.csv" />
-        <param name="ICP_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_count_time.csv" />
-        <param name="PLICP_pose_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_pose_pub_time.csv" />
+        <param name="scan_matching_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_count_time.csv" />
+        <param name="scan_matching_pose_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_pose_pub_time.csv" />
         <param name="re_initial_cov_xx" value="0.25"/>
         <param name="re_initial_cov_yy" value="0.25"/>
         <param name="re_initial_cov_aa" value="0.069"/>
+        <param name="scan_match_method" value="PLICP"/>
+        
     </node>
 
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">

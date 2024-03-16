@@ -1,0 +1,12 @@
+<launch>
+
+    <param name="/use_sim_time" value="true" />
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1114_map.yaml">
+    
+    </node>
+
+    <node pkg="accurate_localization" type="grid_to_pc_map" name="grid_to_pc_map" output="screen">
+        <param name="map_name" value="1114_map"/>
+    </node>
+
+</launch>
