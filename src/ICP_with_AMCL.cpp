@@ -16,6 +16,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/utils.h>
+#include<tf2_eigen/tf2_eigen.h>
 #include <sensor_msgs/PointCloud2.h>
 
 #include <pcl_ros/point_cloud.h>
@@ -44,14 +45,15 @@ enum ICP_method{
 class ICP_with_AMCL
 {
 private:
-    double amcl_pose_x;
-    double amcl_pose_y;
-    double amcl_pose_yaw; 
+    float amcl_pose_x;
+    float amcl_pose_y;
+    float amcl_pose_yaw; 
     double PLICP_pose_x;
     double PLICP_pose_y;
     double PLICP_pose_yaw; 
     nav_msgs::Path amcl_path;
     nav_msgs::Path PLICP_path;
+    nav_msgs::Path ICP_path;
     double init_cov_[3];
     double cov_xx;
     double cov_yy;
@@ -59,6 +61,7 @@ private:
     int re_init_count = 0;
     bool map_received;
     bool laser_to_base_received;
+    bool pc_map_received;
     //map<ros::Time, sensor_msgs::LaserScan> scan_dic;
     sensor_msgs::LaserScan scan_data;
 
@@ -101,7 +104,9 @@ private:
     vector<float> intensities;
 
     vector<float> virtual_ranges;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr map_pc;
     pcl::PointCloud<pcl::PointXYZ>::Ptr scan_pc;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr scan_pc_at_base;
     pcl::PointCloud<pcl::PointXYZ>::Ptr virtual_pc;
     sensor_msgs::LaserScan  virtual_scan;
 
@@ -127,6 +132,9 @@ private:
     ros::Publisher PLICP_path_pub;
     ros::Publisher PLICP_pose_pub;
     ros::Publisher amcl_init_pub;
+    ros::Publisher map_pc_pub;
+    ros::Publisher ICP_pose_pub;
+    ros::Publisher ICP_path_pub;
     //use message_filters to ensure that the scan and pose of AMCL is at the same time
     message_filters::Subscriber<sensor_msgs::LaserScan> scan_sub_;
     message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> pose_sub_;
@@ -145,11 +153,15 @@ private:
     tf2::Transform amcl_base_to_map_tf2;
     tf2::Transform laser_to_map_tf2;
     tf2::Transform base_to_laser_tf2;
+    Eigen::Isometry3d laser_to_base_eigen;
+    Eigen::Matrix4f init_guess;
+    Eigen::Matrix4f icp_result_transform;
 
     std::string amcl_time_save_path;
     std::string scan_matching_time_save_path;
     std::string scan_matching_pose_time_save_path;
     std::string scan_match_method_Str;
+    std::string pc_map_path;
     std::ofstream file_amcl_time;
     std::ofstream file_scan_matching_time;
     std::ofstream file_scan_matching_pose_time;
@@ -165,8 +177,14 @@ public:
         init_cov_[1] = 0.5 * 0.5;
         init_cov_[2] = (M_PI/12.0) * (M_PI/12.0);
         map_received = false;
+        pc_map_received = false;
         laser_to_base_received = false;
-
+        init_guess.setIdentity();
+        map_pc = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+        scan_pc_at_base = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+        scan_pc = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+        virtual_pc = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+        
         //laser_scan_sub = _nh.subscribe("/scan", 2, &scan_to_pc::laserScanCallback,this);
         //laser_scan_sub = _nh.subscribe("/amcl_scan", 2, &scan_to_pc::laserScanCallback,this);
         //subscibe amcl pose
@@ -182,7 +200,10 @@ public:
         amcl_path_pub = _nh.advertise<nav_msgs::Path>("/amcl_path", 1);
         PLICP_path_pub = _nh.advertise<nav_msgs::Path>("/PLICP_path", 1);
         PLICP_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("/PLICP_pose", 1);
+        ICP_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("/ICP_pose", 1);
+        ICP_path_pub = _nh.advertise<nav_msgs::Path>("/ICP_path", 1);
         amcl_init_pub = _nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
+        map_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/map_pc", 10);
 
         _nh.param<string>("amcl_time_save_path", amcl_time_save_path,"/Default/path");
         _nh.param<string>("scan_matching_time_save_path", scan_matching_time_save_path,"/Default/path");
@@ -190,7 +211,8 @@ public:
         _nh.param("re_initial_cov_xx", cov_xx , init_cov_[0]);
         _nh.param("re_initial_cov_yy", cov_yy, init_cov_[1]);
         _nh.param("re_initial_cov_aa", cov_yawyaw, init_cov_[2]);
-        _nh.param("scan_match_method", scan_match_method_Str ,std::string("PLICP"));
+        _nh.param<string>("scan_match_method", scan_match_method_Str ,"PLICP");
+        _nh.param<string>("pc_map_path", pc_map_path ,"/Default/path");
         
         if(scan_match_method_Str == "ICP")
         {
@@ -206,7 +228,7 @@ public:
             scan_match_method_Str .c_str());
             method = PLICP;
         }
-        
+        cout << scan_match_method_Str << endl;
         file_amcl_time.open(amcl_time_save_path);
         file_amcl_time << "last time, this time, pub duration\n";
         file_scan_matching_time.open(scan_matching_time_save_path);
@@ -394,12 +416,32 @@ public:
             input_.use_sigma_weights = 0;
         }    
     }
+
+    void load_pc_map()
+    {
+        while(pcl::io::loadPCDFile<pcl::PointXYZ>(pc_map_path, *map_pc) == -1) 
+        {
+            ROS_ERROR("Couldn't read file your_point_cloud.pcd");
+            ros::Duration(0.5).sleep();
+        }
+        ROS_INFO("point cloud map is loaded successfully");
+    }
+    void publish_pc_map()
+    {   
+        sensor_msgs::PointCloud2 map_pc_msg;
+        pcl::toROSMsg(*map_pc,map_pc_msg);
+        map_pc_msg.header.stamp = ros::Time::now();
+        map_pc_msg.header.frame_id = "map";
+        map_pc_pub.publish(map_pc_msg);
+        ROS_INFO("point cloud map is published successfully");
+    }
     void tf2_listener_laser() 
     {
         try{
             //"base_link is target,laser is source"
             laser_to_base = tfBuffer.lookupTransform("base_link", "laser", ros::Time(0));
             tf2::fromMsg(laser_to_base.transform,laser_to_base_tf2);
+            laser_to_base_eigen = tf2::transformToEigen(laser_to_base.transform);
             laser_to_base_received = true;
         }
         catch (tf2::TransformException& ex) {
@@ -470,6 +512,18 @@ public:
         }
     }
     */
+    Eigen::Matrix4f set_init_guess(float x, float y, float yaw)
+    {   
+        Eigen::Matrix4f matrix = Eigen::Matrix4f::Identity();
+        matrix(0, 0) = cos(yaw);
+        matrix(0, 1) = -sin(yaw);
+        matrix(0, 3) = x;
+
+        matrix(1, 0) = sin(yaw);
+        matrix(1, 1) = cos(yaw);
+        matrix(1, 3) = y;
+        return matrix;
+    }
 
     float line_fx(int x,float m)
     {
@@ -536,8 +590,8 @@ public:
                         if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
-                            x_map = x_grid * grid_map.info.resolution + grid_origin_x;
-                            y_map = y_grid * grid_map.info.resolution + grid_origin_y;
+                            x_map = x_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_x;
+                            y_map = y_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_y;
                             find_vir_flag = true;
                             //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
@@ -556,8 +610,8 @@ public:
                         if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
-                            x_map = x_grid * grid_map.info.resolution + grid_origin_x;
-                            y_map = y_grid * grid_map.info.resolution + grid_origin_y;
+                            x_map = x_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_x;
+                            y_map = y_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_y;
                             find_vir_flag = true;
                             //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
@@ -576,8 +630,8 @@ public:
                         if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
-                            x_map = x_grid * grid_map.info.resolution + grid_origin_x;
-                            y_map = y_grid * grid_map.info.resolution + grid_origin_y;
+                            x_map = x_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_x;
+                            y_map = y_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_y;
                             find_vir_flag = true;
                             //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
@@ -596,8 +650,8 @@ public:
                         if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
-                            x_map = x_grid * grid_map.info.resolution + grid_origin_x;
-                            y_map = y_grid * grid_map.info.resolution + grid_origin_y;
+                            x_map = x_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_x;
+                            y_map = y_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_y;
                             find_vir_flag = true;
                             //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
@@ -619,8 +673,8 @@ public:
                         if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
-                            x_map = x_grid * grid_map.info.resolution + grid_origin_x;
-                            y_map = y_grid * grid_map.info.resolution + grid_origin_y;
+                            x_map = x_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_x;
+                            y_map = y_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_y;
                             find_vir_flag = true;
                             //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
@@ -638,8 +692,8 @@ public:
                         if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
-                            x_map = x_grid * grid_map.info.resolution + grid_origin_x;
-                            y_map = y_grid * grid_map.info.resolution + grid_origin_y;
+                            x_map = x_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_x;
+                            y_map = y_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_y;
                             find_vir_flag = true;
                             //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
@@ -658,8 +712,8 @@ public:
                         if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
-                            x_map = x_grid * grid_map.info.resolution + grid_origin_x;
-                            y_map = y_grid * grid_map.info.resolution + grid_origin_y;
+                            x_map = x_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_x;
+                            y_map = y_grid * grid_map.info.resolution + grid_map.info.resolution/2 +grid_origin_y;
                             find_vir_flag = true;
                             //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
@@ -677,8 +731,8 @@ public:
                         if(grid_map.data[index]>=occ_threshold)
                         {   
                             //virtual point at map frame
-                            x_map = x_grid * grid_map.info.resolution + grid_origin_x;
-                            y_map = y_grid * grid_map.info.resolution + grid_origin_y;
+                            x_map = x_grid * grid_map.info.resolution + grid_map.info.resolution/2 + grid_origin_x;
+                            y_map = y_grid * grid_map.info.resolution + grid_map.info.resolution/2 + grid_origin_y;
                             find_vir_flag = true;
                             //ROS_INFO("find virtual point! x=%f y=%f",x_map,y_map);
                             break;
@@ -991,6 +1045,40 @@ public:
         PLICP_path.poses.push_back(pose);
         PLICP_path_pub.publish(PLICP_path);
     }
+    void ICP_pose_path_publisher(Eigen::Matrix4f transform)
+    {   
+        Eigen::Isometry3d T;
+        Eigen::Matrix4d transform_double;
+        geometry_msgs::PoseStamped pose;
+        transform_double = transform.cast<double>();
+        pose.header.stamp = scan_time_stamp;
+        pose.header.frame_id = "map";
+
+        //pub icp pose
+        T = transform_double;
+        pose.pose = tf2::toMsg(T);
+        ICP_pose_pub.publish(pose);
+
+        //store the pub time between 2 PLICP poses
+        if(!scan_matching_init)
+        {   
+            last_scan_matching_time = ros::WallTime::now();
+            scan_matching_init = true;
+        }
+        else
+        {   
+            scan_matching_pub_now = ros::WallTime::now();
+            scan_matching_pub_duration = scan_matching_pub_now- last_scan_matching_time;
+            //store the time data
+            file_scan_matching_pose_time << last_scan_matching_time.toSec() << "," << scan_matching_pub_now.toSec() << "," << scan_matching_pub_duration.toSec() << "\n";
+            last_scan_matching_time = scan_matching_pub_now;
+        }
+        //pub icp path
+        ICP_path.header.frame_id = "map";
+        ICP_path.header.stamp = scan_time_stamp;
+        ICP_path.poses.push_back(pose);
+        ICP_path_pub.publish(ICP_path);
+    }
 
 
     void amclsyncCallback(const sensor_msgs::LaserScan::ConstPtr& laser_scan, const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& poseMsg)
@@ -1025,7 +1113,7 @@ public:
         
 
         scan_matching_start_time = amcl_receive_now;
-        ROS_WARN("PLICP start time : %f ", scan_matching_start_time.toSec());
+        ROS_WARN("scan_matching start time : %f ", scan_matching_start_time.toSec());
         //get the amcl global pose
         amcl_pose_x = poseMsg->pose.pose.position.x;
         amcl_pose_y = poseMsg->pose.pose.position.y;
@@ -1075,19 +1163,42 @@ public:
         scan_pc_msg.header.frame_id = "laser";
         scan_pc_pub.publish(scan_pc_msg);
         ROS_INFO("scan_pc published");
-        
+        //get the laser to base_link tf
+        get_laser_pose(poseMsg->pose.pose);
+
         switch(method)
         {
             case ICP:
             {
                 //load pointcloud map
-                //load_pc_map();
+                if(!pc_map_received)
+                {
+                    load_pc_map();
+                    pc_map_received = true;
+                }
+                //publish point cloud map
+                publish_pc_map();
+                ROS_INFO("pc_map published");
+                //transform scan points from laser to base_link
+                pcl::transformPointCloud(*scan_pc,*scan_pc_at_base,laser_to_base_eigen.matrix());
+                //transform amcl pose to eigen matrix as initial guess
+                init_guess = set_init_guess(amcl_pose_x, amcl_pose_y, amcl_pose_yaw);
+
                 // Create an ICP object
+                pcl::PointCloud<pcl::PointXYZ>::Ptr output_pc(new pcl::PointCloud<pcl::PointXYZ>);
                 pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-                icp.setMaxCorrespondenceDistance (2.5);
-                icp.setMaximumIterations (100);
+                icp.setMaxCorrespondenceDistance (0.2);
+                icp.setMaximumIterations (500);
                 icp.setTransformationEpsilon (1e-5);
                 icp.setEuclideanFitnessEpsilon(1e-5);
+                //set source pc as radar point cloud, and target pc as map point cloud
+                icp.setInputSource(scan_pc_at_base);
+                icp.setInputTarget(map_pc);
+                //run the ICP, then get the transformation matrix after icp as new base_link
+                icp.align(*output_pc, init_guess);
+
+                icp_result_transform = icp.getFinalTransformation();
+                ICP_pose_path_publisher(icp_result_transform);
 
                 break;
             }
@@ -1095,7 +1206,6 @@ public:
             case PLICP:
             {
                 //create the vitual point cloud
-                get_laser_pose(poseMsg->pose.pose);
                 tf2_listener_odom(amcl_time_stamp);
                 virtual_pc = create_vitual_scan_pc();
                 ROS_INFO("Received virtual_pc");
@@ -1133,7 +1243,7 @@ public:
         scan_matching_end_time = ros::WallTime::now();
         scan_matching_time_used =  scan_matching_end_time - scan_matching_start_time;
         file_scan_matching_time << scan_matching_start_time.toSec() << "," << scan_matching_end_time.toSec() << "," << scan_matching_time_used.toSec() << "\n";
-        ROS_INFO("PLICP time used : %f (s)\n", scan_matching_time_used.toSec());
+        ROS_INFO("scan_matching_time used : %f (s)\n", scan_matching_time_used.toSec());
         
         /*
         //reinitialize the AMCL

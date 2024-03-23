@@ -1,12 +1,12 @@
 <launch>
-
-    <param name="/use_sim_time" value="true" />
+    <arg name="rvizconfig" default="$(find accurate_localization)/rviz/grid_map_to_pc.rviz"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
     <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1114_map.yaml">
     
     </node>
 
     <node pkg="accurate_localization" type="grid_to_pc_map" name="grid_to_pc_map" output="screen">
-        <param name="map_name" value="1114_map"/>
+        <param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/1114_map.pcd"/>
     </node>
 
 </launch>
