@@ -26,6 +26,9 @@
 #include <pcl/common/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/registration/icp.h>
+#include <pcl/registration/gicp.h>
+#include <pcl/registration/ndt.h>
+#include <pcl/registration/ndt_2d.h>
 #include <pcl_ros/transforms.h>
 #include <map>
 
@@ -39,6 +42,8 @@ using namespace std;
 
 enum ICP_method{
     ICP,
+    GICP,
+    NDT,
     PLICP
 };
 
@@ -135,6 +140,7 @@ private:
     ros::Publisher map_pc_pub;
     ros::Publisher ICP_pose_pub;
     ros::Publisher ICP_path_pub;
+    ros::Publisher aligned_pc_pub;
     //use message_filters to ensure that the scan and pose of AMCL is at the same time
     message_filters::Subscriber<sensor_msgs::LaserScan> scan_sub_;
     message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> pose_sub_;
@@ -200,10 +206,11 @@ public:
         amcl_path_pub = _nh.advertise<nav_msgs::Path>("/amcl_path", 1);
         PLICP_path_pub = _nh.advertise<nav_msgs::Path>("/PLICP_path", 1);
         PLICP_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("/PLICP_pose", 1);
-        ICP_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("/ICP_pose", 1);
-        ICP_path_pub = _nh.advertise<nav_msgs::Path>("/ICP_path", 1);
+        ICP_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("/ICP_pose", 2);
+        ICP_path_pub = _nh.advertise<nav_msgs::Path>("/ICP_path", 2);
         amcl_init_pub = _nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
         map_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/map_pc", 10);
+        aligned_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/aligned_pc", 10);
 
         _nh.param<string>("amcl_time_save_path", amcl_time_save_path,"/Default/path");
         _nh.param<string>("scan_matching_time_save_path", scan_matching_time_save_path,"/Default/path");
@@ -217,6 +224,14 @@ public:
         if(scan_match_method_Str == "ICP")
         {
             method = ICP;
+        }
+        else if(scan_match_method_Str == "GICP")
+        {
+            method = GICP;
+        }
+        else if(scan_match_method_Str == "NDT")
+        {
+            method = NDT;
         }
         else if(scan_match_method_Str == "PLICP")
         {
@@ -1080,6 +1095,16 @@ public:
         ICP_path_pub.publish(ICP_path);
     }
 
+    void aligned_pc_publish(pcl::PointCloud<pcl::PointXYZ>::Ptr pc)
+    {
+        sensor_msgs::PointCloud2 pc_msg;
+        pcl::toROSMsg(*pc,pc_msg);
+        pc_msg.header.stamp = scan_time_stamp;
+        pc_msg.header.frame_id = "map";
+        aligned_pc_pub.publish(pc_msg);
+        ROS_INFO("aligned point cloud is published successfully");
+    }
+
 
     void amclsyncCallback(const sensor_msgs::LaserScan::ConstPtr& laser_scan, const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& poseMsg)
     {   
@@ -1181,14 +1206,18 @@ public:
                 ROS_INFO("pc_map published");
                 //transform scan points from laser to base_link
                 pcl::transformPointCloud(*scan_pc,*scan_pc_at_base,laser_to_base_eigen.matrix());
+                for (size_t i=0; i<scan_pc_at_base->size(); i++) 
+                {
+                    scan_pc_at_base->points[i].z = 0;
+                }
                 //transform amcl pose to eigen matrix as initial guess
                 init_guess = set_init_guess(amcl_pose_x, amcl_pose_y, amcl_pose_yaw);
 
                 // Create an ICP object
                 pcl::PointCloud<pcl::PointXYZ>::Ptr output_pc(new pcl::PointCloud<pcl::PointXYZ>);
                 pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-                icp.setMaxCorrespondenceDistance (0.2);
-                icp.setMaximumIterations (500);
+                icp.setMaxCorrespondenceDistance (0.15);
+                icp.setMaximumIterations (300);
                 icp.setTransformationEpsilon (1e-5);
                 icp.setEuclideanFitnessEpsilon(1e-5);
                 //set source pc as radar point cloud, and target pc as map point cloud
@@ -1197,12 +1226,118 @@ public:
                 //run the ICP, then get the transformation matrix after icp as new base_link
                 icp.align(*output_pc, init_guess);
 
-                icp_result_transform = icp.getFinalTransformation();
-                ICP_pose_path_publisher(icp_result_transform);
+                if(icp.hasConverged())
+                {   
+                    ROS_INFO("ICP converged, fitness score: %lf\n", icp.getFitnessScore());
+                    icp_result_transform = icp.getFinalTransformation();
+                    ICP_pose_path_publisher(icp_result_transform);
+                    aligned_pc_publish(output_pc);
+                }
+                else
+                {
+                    ROS_WARN("ICP not converged");
+                }
 
                 break;
             }
-    
+            case GICP:
+            {
+                //load pointcloud map
+                if(!pc_map_received)
+                {
+                    load_pc_map();
+                    pc_map_received = true;
+                }
+                //publish point cloud map
+                publish_pc_map();
+                ROS_INFO("pc_map published");
+                //transform scan points from laser to base_link
+                pcl::transformPointCloud(*scan_pc,*scan_pc_at_base,laser_to_base_eigen.matrix());
+                for (size_t i=0; i<scan_pc_at_base->size(); i++) 
+                {
+                    scan_pc_at_base->points[i].z = 0;
+                }
+                //transform amcl pose to eigen matrix as initial guess
+                init_guess = set_init_guess(amcl_pose_x, amcl_pose_y, amcl_pose_yaw);
+
+                // Create an GICP object
+                pcl::PointCloud<pcl::PointXYZ>::Ptr output_pc(new pcl::PointCloud<pcl::PointXYZ>);
+                pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;;
+                gicp.setMaxCorrespondenceDistance (0.15);
+                gicp.setMaximumIterations (50);
+                gicp.setTransformationEpsilon (1e-5);
+                gicp.setEuclideanFitnessEpsilon(1e-5);
+                //set source pc as radar point cloud, and target pc as map point cloud
+                gicp.setInputSource(scan_pc_at_base);
+                gicp.setInputTarget(map_pc);
+                //run the GICP, then get the transformation matrix after icp as new base_link
+                gicp.align(*output_pc, init_guess);
+
+                if(gicp.hasConverged())
+                {   
+                    ROS_INFO("GICP converged, fitness score: %lf\n", gicp.getFitnessScore());
+                    icp_result_transform = gicp.getFinalTransformation();
+                    ICP_pose_path_publisher(icp_result_transform); 
+                    aligned_pc_publish(output_pc);
+                }
+                else
+                {
+                    ROS_WARN("GICP not converged");
+                }
+
+                break;
+            }
+
+            case NDT:
+            {   
+                //load pointcloud map
+                if(!pc_map_received)
+                {
+                    load_pc_map();
+                    pc_map_received = true;
+                }
+                //publish point cloud map
+                publish_pc_map();
+                ROS_INFO("pc_map published");
+                //transform scan points from laser to base_link
+                pcl::transformPointCloud(*scan_pc,*scan_pc_at_base,laser_to_base_eigen.matrix());
+                for (size_t i=0; i<scan_pc_at_base->size(); i++) 
+                {
+                    scan_pc_at_base->points[i].z = 0;
+                }
+                //transform amcl pose to eigen matrix as initial guess
+                init_guess = set_init_guess(amcl_pose_x, amcl_pose_y, amcl_pose_yaw);
+
+                // Create an NDT object
+                pcl::PointCloud<pcl::PointXYZ>::Ptr output_pc(new pcl::PointCloud<pcl::PointXYZ>);
+                pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt;
+                ndt.setMaximumIterations (100);
+                ndt.setTransformationEpsilon (0.001);
+                ndt.setStepSize (0.1);
+                ndt.setResolution (0.8);
+
+                //set source pc as radar point cloud, and target pc as map point cloud
+                ndt.setInputSource(scan_pc_at_base);
+                ndt.setInputTarget(map_pc);
+                //run the NDT, then get the transformation matrix after icp as new base_link
+                ndt.align(*output_pc, init_guess);
+
+                if(ndt.hasConverged())
+                {   
+                    ROS_INFO("NDT converged, fitness score: %lf\n", ndt.getFitnessScore());
+                    icp_result_transform = ndt.getFinalTransformation();
+                    ICP_pose_path_publisher(icp_result_transform); 
+                    aligned_pc_publish(output_pc);
+                }
+                else
+                {
+                    ROS_WARN("NDT not converged");
+                }
+
+
+                break;
+            }
+
             case PLICP:
             {
                 //create the vitual point cloud

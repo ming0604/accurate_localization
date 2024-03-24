@@ -114,7 +114,7 @@
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
     </node>
 
-    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/100hz_pose_get_pose_in_timer_for_jay -a"/> -->
+    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/NDT_1 -a"/>-->
     
 
 </launch>
