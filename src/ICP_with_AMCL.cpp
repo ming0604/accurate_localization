@@ -16,7 +16,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/utils.h>
-#include<tf2_eigen/tf2_eigen.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <sensor_msgs/PointCloud2.h>
 
 #include <pcl_ros/point_cloud.h>
@@ -36,6 +36,7 @@
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 
+#include <Eigen/Dense>
 #include <csm/csm_all.h> 
 using namespace CSM ;
 using namespace std;
@@ -186,10 +187,10 @@ public:
         pc_map_received = false;
         laser_to_base_received = false;
         init_guess.setIdentity();
-        map_pc = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
-        scan_pc_at_base = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
-        scan_pc = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
-        virtual_pc = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+        map_pc.reset(new pcl::PointCloud<pcl::PointXYZ>);
+        scan_pc_at_base.reset(new pcl::PointCloud<pcl::PointXYZ>);
+        scan_pc.reset(new pcl::PointCloud<pcl::PointXYZ>);
+        virtual_pc.reset(new pcl::PointCloud<pcl::PointXYZ>);
         
         //laser_scan_sub = _nh.subscribe("/scan", 2, &scan_to_pc::laserScanCallback,this);
         //laser_scan_sub = _nh.subscribe("/amcl_scan", 2, &scan_to_pc::laserScanCallback,this);
@@ -1095,7 +1096,7 @@ public:
         ICP_path_pub.publish(ICP_path);
     }
 
-    void aligned_pc_publish(pcl::PointCloud<pcl::PointXYZ>::Ptr pc)
+    void aligned_pc_publish(const pcl::PointCloud<pcl::PointXYZ>::Ptr pc)
     {
         sensor_msgs::PointCloud2 pc_msg;
         pcl::toROSMsg(*pc,pc_msg);

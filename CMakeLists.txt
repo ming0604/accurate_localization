@@ -156,6 +156,13 @@ target_link_libraries(base_gt ${catkin_LIBRARIES} )
 add_executable(grid_to_pc_map src/grid_to_pc_map.cpp)
 target_link_libraries(grid_to_pc_map ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
+add_executable(vive_initial_pose src/vive_initial_pose.cpp)
+target_link_libraries(vive_initial_pose ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+#add_executable(tf_static_test src/tf_static_test.cpp)
+#target_link_libraries(tf_static_test ${catkin_LIBRARIES} )
+
+
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use

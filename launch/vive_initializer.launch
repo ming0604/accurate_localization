@@ -1,0 +1,7 @@
+<launch>
+    <node pkg="accurate_localization" type="vive_initial_pose" name="vive_initial_pose" output="screen">
+        <param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/1114_map.pcd"/>
+        
+    </node>
+
+</launch>  

@@ -1,0 +1,7 @@
+<launch>
+
+<node pkg="tf2_ros" type="static_transform_publisher" name="odom_t265" args="0.35525 0.014216 0.01725 0 0 0 1 odom_frame t265_odom_frame" />
+<!-- <node pkg="tf2_ros" type="static_transform_publisher" name="odom_vive" args="-0.1865 -0.1322 0.399 0 0 0 1 odom_frame vive_odom" /> -->
+<node pkg="tf2_ros" type="static_transform_publisher" name="map_vive" args="-0.1865 -0.1322 0.399 0 0 0 1 map vive_odom" />
+
+</launch>  
