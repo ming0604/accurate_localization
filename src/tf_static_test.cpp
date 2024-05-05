@@ -5,7 +5,6 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 
-std::string static_turtle_name;
 
 int main(int argc, char **argv)
 {
@@ -15,18 +14,17 @@ int main(int argc, char **argv)
   geometry_msgs::TransformStamped static_transformStamped;
 
   static_transformStamped.header.stamp = ros::Time::now();
-  static_transformStamped.header.frame_id = "odom_frame";
+  static_transformStamped.header.frame_id = "map";
   static_transformStamped.child_frame_id = "vive_odom";
-  static_transformStamped.transform.translation.x = 20;
-  static_transformStamped.transform.translation.y = 20;
-  static_transformStamped.transform.translation.z = 20;
+  static_transformStamped.transform.translation.x = 0.3;
+  static_transformStamped.transform.translation.y = 0.3;
+  static_transformStamped.transform.translation.z = 0.399;
   
   static_transformStamped.transform.rotation.x = 0;
   static_transformStamped.transform.rotation.y = 0;
   static_transformStamped.transform.rotation.z = 0;
   static_transformStamped.transform.rotation.w = 1;
   static_broadcaster.sendTransform(static_transformStamped);
-  ros::spin();
-  
+  ros::Duration(20).sleep();
   return 0;
 };

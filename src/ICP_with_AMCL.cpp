@@ -155,11 +155,15 @@ private:
     tf2_ros::TransformListener tfListener;
     geometry_msgs::TransformStamped laser_to_base;
     geometry_msgs::TransformStamped odom_to_base;
+    geometry_msgs::Transform new_laser_to_map_msgs;
     tf2::Transform odom_to_base_tf2;
     tf2::Transform laser_to_base_tf2;
     tf2::Transform amcl_base_to_map_tf2;
     tf2::Transform laser_to_map_tf2;
     tf2::Transform base_to_laser_tf2;
+    tf2::Transform new_base_to_map;
+    tf2::Transform new_laser_to_map;
+    Eigen::Isometry3d new_laser_to_map_eigen;
     Eigen::Isometry3d laser_to_base_eigen;
     Eigen::Matrix4f init_guess;
     Eigen::Matrix4f icp_result_transform;
@@ -873,8 +877,8 @@ public:
     void tf_correct_odom()
     {   
         tf2::Transform new_laser_to_old_laser;
-        tf2::Transform new_laser_to_map;
-        tf2::Transform new_base_to_map;
+        
+        
         tf2::Transform odom_to_map;
         //get the new laser to map transform
         new_laser_to_old_laser = createTf_from_XYyaw(laser_x_plicp, laser_y_plicp, laser_yaw_plicp);
@@ -1367,6 +1371,12 @@ public:
                 
                 //do PLICP to correct the pose of AMCL
                 do_PLICP();
+                //get aligned scan after PLICP pose
+                pcl::PointCloud<pcl::PointXYZ>::Ptr PLICP_aligned_pc(new pcl::PointCloud<pcl::PointXYZ>);
+                new_laser_to_map_msgs = tf2::toMsg(new_laser_to_map);
+                new_laser_to_map_eigen = tf2::transformToEigen(new_laser_to_map_msgs);
+                pcl::transformPointCloud(*scan_pc,*PLICP_aligned_pc,new_laser_to_map_eigen.matrix());
+                aligned_pc_publish(PLICP_aligned_pc);
                 //draw the path of AMCL+PLICP and origin AMCL
                 PLICP_pose_path_publisher();
                 

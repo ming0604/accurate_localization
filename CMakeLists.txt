@@ -158,8 +158,13 @@ target_link_libraries(grid_to_pc_map ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable(vive_initial_pose src/vive_initial_pose.cpp)
 target_link_libraries(vive_initial_pose ${catkin_LIBRARIES} ${PCL_LIBRARIES})
-#add_executable(tf_static_test src/tf_static_test.cpp)
-#target_link_libraries(tf_static_test ${catkin_LIBRARIES} )
+
+add_executable(tf_static_test src/tf_static_test.cpp)
+target_link_libraries(tf_static_test ${catkin_LIBRARIES} )
+
+add_executable(tf_test_bag_listening src/tf_test_bag_listening.cpp)
+target_link_libraries(tf_test_bag_listening ${catkin_LIBRARIES} )
+ 
 
 
 

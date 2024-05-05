@@ -42,6 +42,7 @@ class initializer
         ros::NodeHandle _nh;
 
         ros::Subscriber scan_sub;
+        ros::Publisher final_init_pose_pub;
 
         float laser_angle_min;
         float laser_angle_max;
@@ -49,6 +50,7 @@ class initializer
         float laser_time_increment;
         float range_max;
         float range_min;
+        double init_x, init_y, init_yaw;
 
         vector<float> ranges;
         vector<ICP_result> results;
@@ -86,6 +88,7 @@ class initializer
         void tf2_listener_laser();
         void tf2_listener_tracker(); 
         void vive_odom_calibration_tf_publish(tf2::Transform icp_result_tf2);
+        void final_init_pose_publish(const geometry_msgs::Pose& init);
         Eigen::Matrix4f set_init_guess(float x, float y, float yaw);
         //transform scan to point cloud
         pcl::PointCloud<pcl::PointXYZ>::Ptr create_scan_pc();
@@ -101,17 +104,21 @@ initializer::initializer(ros::NodeHandle nh):tfListener(tfBuffer)
 {
     _nh = nh;
     scan_sub = _nh.subscribe("/scan", 1 , &initializer::scan_callback, this);
+    final_init_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("ICP_init_pose",1);
 
     //get parameters
     _nh.param<string>("pc_map_path", pc_map_path ,"/Default/path");
+    _nh.param("initial_pose_x", init_x , 0.0);
+    _nh.param("initial_pose_y", init_y , 0.0);
+    _nh.param("initial_pose_yaw", init_yaw, 0.0);
 
     map_pc.reset(new pcl::PointCloud<pcl::PointXYZ>);
     scan_pc.reset(new pcl::PointCloud<pcl::PointXYZ>);
     scan_pc_at_base.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
     //set initial pose at map origin
-    //init_guess = set_init_guess(7.2, 5.3, 1.5);
-    init_guess.setIdentity();
+    init_guess = set_init_guess(static_cast<float>(init_x), static_cast<float>(init_y), static_cast<float>(init_yaw));
+    //init_guess.setIdentity();
 
     cnt = 0;
     pc_map_received = false;
@@ -208,6 +215,27 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr initializer::create_scan_pc()
     return pc;
 }
 
+void initializer::final_init_pose_publish(const geometry_msgs::Pose& init)
+{
+    geometry_msgs::PoseStamped final_init_pose;
+    final_init_pose.pose = init;
+    final_init_pose.header.frame_id = "map";
+    final_init_pose.header.stamp = ros::Time::now();
+    final_init_pose_pub.publish(final_init_pose);
+
+    //print out the initial pose
+    double x,y,yaw;
+    x = final_init_pose.pose.position.x;
+    y = final_init_pose.pose.position.y;
+
+    tf2::Quaternion q;
+    tf2::fromMsg(final_init_pose.pose.orientation,q);
+    yaw = tf2::getYaw(q);
+    
+    ROS_INFO("final inaitial pose: x=%lf, y=%lf, yaw=%lf\n",x,y,yaw);
+    
+}
+
 void initializer::vive_odom_calibration_tf_publish(tf2::Transform icp_result_tf2)
 {   
     //get tracker to base tf
@@ -218,6 +246,12 @@ void initializer::vive_odom_calibration_tf_publish(tf2::Transform icp_result_tf2
     //icp result is initial base to map tf
     vive_odom_to_map_calibration_tf2 = icp_result_tf2*vive_pose_to_base_tf2;
 
+    //print vive_odom pose on map
+    double x,y,yaw;
+    x = vive_odom_to_map_calibration_tf2.getOrigin().x();
+    y = vive_odom_to_map_calibration_tf2.getOrigin().y();
+    yaw = tf2::getYaw(vive_odom_to_map_calibration_tf2.getRotation());
+    ROS_INFO("vive inaitial pose: x=%lf, y=%lf, yaw=%lf\n",x,y,yaw);
     //publish new tracker initial pose tf (vive_odom_to_map_calibration_tf)
     geometry_msgs::TransformStamped vive_odom_to_map_static_transformStamped;
 
@@ -309,13 +343,23 @@ void initializer::scan_callback(const sensor_msgs::LaserScan::ConstPtr& laser_sc
         Eigen::Matrix4d icp_best_result_transform_double;
         geometry_msgs::Pose icp_best_result_msg;
         tf2::Transform icp_best_result_tf2;
+        tf2::Quaternion q;
+        double result_yaw;
 
         icp_best_result_transform_double = icp_best_result_transform.cast<double>();
         Eigen::Isometry3d T(icp_best_result_transform_double);
         
         icp_best_result_msg = tf2::toMsg(T);
+        //set z=0 and roll&pitch = 0
+        icp_best_result_msg.position.z = 0;
+        result_yaw = tf2::getYaw(icp_best_result_msg.orientation);
+        q.setRPY(0,0,result_yaw);
+        icp_best_result_msg.orientation = tf2::toMsg(q);
+        
         tf2::convert(icp_best_result_msg,icp_best_result_tf2);
+        final_init_pose_publish(icp_best_result_msg);
         //compute vive odom to map tf after calibration and then publish it
+        
         vive_odom_calibration_tf_publish(icp_best_result_tf2);
         ros::shutdown();
     }

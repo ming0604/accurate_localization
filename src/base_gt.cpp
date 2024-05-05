@@ -117,6 +117,10 @@ public:
                 listener.lookupTransform("vive_pose", "base_link", ros::Time(0),base_to_vive_tf);
                 listener.lookupTransform("map", "vive_odom", ros::Time(0),vive_odom_to_map_tf);
                 getvivetf = true;
+                cout << "vive_odom_to_map: " << "x:" << vive_odom_to_map_tf.getOrigin().x() << " y:" << vive_odom_to_map_tf.getOrigin().y()
+                << " yaw:" << tf::getYaw(vive_odom_to_map_tf.getRotation()) << endl;
+                cout << "vive_pose_to_base: " << "x:" << base_to_vive_tf.inverse().getOrigin().x() << " y:" << base_to_vive_tf.inverse().getOrigin().y()
+                << " yaw:" << tf::getYaw(base_to_vive_tf.inverse().getRotation()) << endl;
             }
             catch (tf2::TransformException &ex)
             {

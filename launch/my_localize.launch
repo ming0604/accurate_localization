@@ -106,7 +106,7 @@
         <param name="re_initial_cov_xx" value="0.25"/>
         <param name="re_initial_cov_yy" value="0.25"/>
         <param name="re_initial_cov_aa" value="0.069"/>
-        <param name="scan_match_method" type="string" value="ICP"/>
+        <param name="scan_match_method" type="string" value="PLICP"/>
         <param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/1114_map.pcd"/>
         
     </node>
@@ -114,7 +114,7 @@
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
     </node>
 
-    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/NDT_1 -a"/>-->
+    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/for_jay_new -a"/>-->
     
 
 </launch>

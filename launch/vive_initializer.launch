@@ -1,7 +1,12 @@
 <launch>
     <node pkg="accurate_localization" type="vive_initial_pose" name="vive_initial_pose" output="screen">
         <param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/1114_map.pcd"/>
-        
+        <!--<param name="initial_pose_x" value="7.2"/>
+        <param name="initial_pose_y" value="5.7"/>
+        <param name="initial_pose_yaw" value="1.5"/>-->
+        <param name="initial_pose_x" value="0"/>
+        <param name="initial_pose_y" value="0"/>
+        <param name="initial_pose_yaw" value="0"/>
     </node>
 
 </launch>  
