@@ -65,6 +65,7 @@ private:
     double cov_yy;
     double cov_yawyaw;
     int re_init_count = 0;
+    bool reinit;
     bool map_received;
     bool laser_to_base_received;
     bool pc_map_received;
@@ -220,6 +221,7 @@ public:
         _nh.param<string>("amcl_time_save_path", amcl_time_save_path,"/Default/path");
         _nh.param<string>("scan_matching_time_save_path", scan_matching_time_save_path,"/Default/path");
         _nh.param<string>("scan_matching_pose_time_save_path", scan_matching_pose_time_save_path,"/Default/path");
+        _nh.param("use_reinitiate", reinit , false);
         _nh.param("re_initial_cov_xx", cov_xx , init_cov_[0]);
         _nh.param("re_initial_cov_yy", cov_yy, init_cov_[1]);
         _nh.param("re_initial_cov_aa", cov_yawyaw, init_cov_[2]);
@@ -1391,16 +1393,19 @@ public:
         file_scan_matching_time << scan_matching_start_time.toSec() << "," << scan_matching_end_time.toSec() << "," << scan_matching_time_used.toSec() << "\n";
         ROS_INFO("scan_matching_time used : %f (s)\n", scan_matching_time_used.toSec());
         
-        /*
-        //reinitialize the AMCL
-        re_init_count++;
-        if(re_init_count >20)
-        {
-            amcl_reinit();
-            re_init_count = 0;
-        }
         
-        */
+        //reinitialize the AMCL
+        if(reinit)
+        {
+            re_init_count++;
+            if(re_init_count >20)
+            {
+                amcl_reinit();
+                re_init_count = 0;
+            }                    
+        }
+
+        
 
     }
 };
