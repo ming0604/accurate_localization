@@ -103,6 +103,7 @@
         <param name="amcl_time_save_path" type="string" value="$(find accurate_localization)/result/amcl_time.csv" />
         <param name="scan_matching_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_count_time.csv" />
         <param name="scan_matching_pose_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_pose_pub_time.csv" />
+        <param name="use_reinitiate" value="false"/>
         <param name="re_initial_cov_xx" value="0.25"/>
         <param name="re_initial_cov_yy" value="0.25"/>
         <param name="re_initial_cov_aa" value="0.069"/>
@@ -112,9 +113,13 @@
     </node>
 
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
+        <param name="do_calibration" value="true"/>
+        <param name="base_link_initial_pose_x" value="0.049768"/>
+        <param name="base_link_initial_pose_y" value="0.007730"/>
+        <param name="base_link_initial_pose_yaw" value="0.014415"/>
     </node>
 
-    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/for_jay_new -a"/>-->
+    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20240421_init_05_insert1_PLICP -a"/> -->
     
 
 </launch>
