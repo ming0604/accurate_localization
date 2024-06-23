@@ -1,12 +1,26 @@
 <launch>
+    <arg name="rvizconfig" default="$(find accurate_localization)/rviz/vive_initializer.rviz"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1114_map.yaml"/> 
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1016_map05.yaml"/>--> 
+    
     <node pkg="accurate_localization" type="vive_initial_pose" name="vive_initial_pose" output="screen">
-        <param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/1114_map.pcd"/>
+        <param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/1114_map.pcd"/> 
+        <!--<param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/1016_map05.pcd"/>-->
         <!--<param name="initial_pose_x" value="7.2"/>
         <param name="initial_pose_y" value="5.7"/>
         <param name="initial_pose_yaw" value="1.5"/>-->
+
+        <!--for initial pose at 0 0 0 (1114 map)-->
         <param name="initial_pose_x" value="0"/>
         <param name="initial_pose_y" value="0"/>
         <param name="initial_pose_yaw" value="0"/>
+
+        <!--for initial pose at 5 0 0 (1016_05 map) 
+        <param name="initial_pose_x" value="5"/>
+        <param name="initial_pose_y" value="0"/>
+        <param name="initial_pose_yaw" value="0"/>-->
+        <param name="ICP_max_corres_distance" value="0.5"/>
     </node>
 
 </launch>  

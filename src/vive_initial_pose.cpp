@@ -28,6 +28,7 @@ using namespace std;
 typedef struct ICP_result
 {
     double score;
+    ros::Time timestamp;
     Eigen::Matrix4f result;
 }ICP_result;
 
@@ -43,6 +44,7 @@ class initializer
 
         ros::Subscriber scan_sub;
         ros::Publisher final_init_pose_pub;
+        ros::Publisher final_pc_pub;
 
         float laser_angle_min;
         float laser_angle_max;
@@ -51,6 +53,7 @@ class initializer
         float range_max;
         float range_min;
         double init_x, init_y, init_yaw;
+        double max_corres_distance;
 
         vector<float> ranges;
         vector<ICP_result> results;
@@ -60,6 +63,7 @@ class initializer
         pcl::PointCloud<pcl::PointXYZ>::Ptr map_pc;
         pcl::PointCloud<pcl::PointXYZ>::Ptr scan_pc;
         pcl::PointCloud<pcl::PointXYZ>::Ptr scan_pc_at_base;
+        pcl::PointCloud<pcl::PointXYZ>::Ptr final_pc_at_map;
         
         tf2_ros::Buffer tfBuffer;
         tf2_ros::TransformListener tfListener;
@@ -90,6 +94,7 @@ class initializer
         void vive_odom_calibration_tf_publish(tf2::Transform icp_result_tf2);
         void final_init_pose_publish(const geometry_msgs::Pose& init);
         Eigen::Matrix4f set_init_guess(float x, float y, float yaw);
+        void aligned_pc_publish(const pcl::PointCloud<pcl::PointXYZ>::Ptr pc, ros::Time t);
         //transform scan to point cloud
         pcl::PointCloud<pcl::PointXYZ>::Ptr create_scan_pc();
         
@@ -105,17 +110,19 @@ initializer::initializer(ros::NodeHandle nh):tfListener(tfBuffer)
     _nh = nh;
     scan_sub = _nh.subscribe("/scan", 1 , &initializer::scan_callback, this);
     final_init_pose_pub = _nh.advertise<geometry_msgs::PoseStamped>("ICP_init_pose",1);
+    final_pc_pub = _nh.advertise<sensor_msgs::PointCloud2>("/final_init_pc", 10);
 
     //get parameters
     _nh.param<string>("pc_map_path", pc_map_path ,"/Default/path");
     _nh.param("initial_pose_x", init_x , 0.0);
     _nh.param("initial_pose_y", init_y , 0.0);
     _nh.param("initial_pose_yaw", init_yaw, 0.0);
+    _nh.param("ICP_max_corres_distance", max_corres_distance,1.0);
 
     map_pc.reset(new pcl::PointCloud<pcl::PointXYZ>);
     scan_pc.reset(new pcl::PointCloud<pcl::PointXYZ>);
     scan_pc_at_base.reset(new pcl::PointCloud<pcl::PointXYZ>);
-
+    final_pc_at_map.reset(new pcl::PointCloud<pcl::PointXYZ>);
     //set initial pose at map origin
     init_guess = set_init_guess(static_cast<float>(init_x), static_cast<float>(init_y), static_cast<float>(init_yaw));
     //init_guess.setIdentity();
@@ -123,6 +130,8 @@ initializer::initializer(ros::NodeHandle nh):tfListener(tfBuffer)
     cnt = 0;
     pc_map_received = false;
     laser_to_base_received = false;
+
+    ROS_INFO("ICP_max_corres_distance: %lf\n",max_corres_distance);
 
 }
 
@@ -264,6 +273,16 @@ void initializer::vive_odom_calibration_tf_publish(tf2::Transform icp_result_tf2
     ROS_INFO("vive_origin tf has been published after calibration");
 }
 
+void initializer::aligned_pc_publish(const pcl::PointCloud<pcl::PointXYZ>::Ptr pc, ros::Time t)
+{
+    sensor_msgs::PointCloud2 pc_msg;
+    pcl::toROSMsg(*pc,pc_msg);
+    pc_msg.header.stamp = t;
+    pc_msg.header.frame_id = "map";
+    final_pc_pub.publish(pc_msg);
+    ROS_INFO("final initial aligned point cloud is published successfully");
+}
+
 void initializer::scan_callback(const sensor_msgs::LaserScan::ConstPtr& laser_scan)
 {   
     laser_angle_min = laser_scan->angle_min;
@@ -303,7 +322,7 @@ void initializer::scan_callback(const sensor_msgs::LaserScan::ConstPtr& laser_sc
     //do ICP
     pcl::PointCloud<pcl::PointXYZ>::Ptr output_pc(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-    icp.setMaxCorrespondenceDistance (0.15);
+    icp.setMaxCorrespondenceDistance (max_corres_distance);
     icp.setMaximumIterations (300);
     icp.setTransformationEpsilon (1e-5);
     icp.setEuclideanFitnessEpsilon(1e-5);
@@ -318,6 +337,7 @@ void initializer::scan_callback(const sensor_msgs::LaserScan::ConstPtr& laser_sc
         ICP_result result;
         result.result = icp.getFinalTransformation();
         result.score = icp.getFitnessScore();
+        result.timestamp = scan_time_stamp;
         ROS_INFO("ICP converged, fitness score: %lf\n", result.score);
         //result of this time icp is the initial guess of next icp
         init_guess = result.result;
@@ -329,16 +349,19 @@ void initializer::scan_callback(const sensor_msgs::LaserScan::ConstPtr& laser_sc
         ROS_WARN("ICP not converged");
     }
 
-    //after performing 10 times icp, we choose the best score ones
-    if(cnt == 10)
+    //after performing 20 times icp, we choose the best score ones
+    if(cnt == 20)
     {   
         ICP_result best_result;
         
         //find the best score(smallest score) ones as the best result
         best_result = *(std::min_element(results.begin(), results.end(),icp_score_compare));
         icp_best_result_transform = best_result.result;
-        ROS_INFO("After doing 10 times ICP, best result's fitness score: %lf\n", best_result.score);
+        ROS_INFO("After doing 20 times ICP, best result's fitness score: %lf\n", best_result.score);
 
+        //publish the aligned point cloud
+        pcl::transformPointCloud(*scan_pc_at_base,*final_pc_at_map,icp_best_result_transform);
+        aligned_pc_publish(final_pc_at_map, best_result.timestamp);
         //transform icp best result data type into tf2::Transform
         Eigen::Matrix4d icp_best_result_transform_double;
         geometry_msgs::Pose icp_best_result_msg;
