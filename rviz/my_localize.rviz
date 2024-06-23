@@ -29,6 +29,8 @@ Panels:
         - /Pose5
         - /PointCloud27
         - /PointCloud28
+        - /Pose7
+        - /Path6
       Splitter Ratio: 0.5147058963775635
     Tree Height: 719
   - Class: rviz/Selection
@@ -717,7 +719,7 @@ Visualization Manager:
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
-      Line Style: Billboards
+      Line Style: Lines
       Line Width: 0.029999999329447746
       Name: Path
       Offset:
@@ -741,7 +743,7 @@ Visualization Manager:
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
-      Line Style: Billboards
+      Line Style: Lines
       Line Width: 0.029999999329447746
       Name: Path
       Offset:
@@ -809,7 +811,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: PoseWithCovariance
@@ -819,13 +821,13 @@ Visualization Manager:
       Shape: Arrow
       Topic: /freq_pose
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
       Class: rviz/Pose
-      Color: 32; 74; 135
-      Enabled: true
+      Color: 91; 24; 157
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: Pose
@@ -834,13 +836,13 @@ Visualization Manager:
       Shaft Radius: 0.05000000074505806
       Shape: Arrow
       Topic: /mean_pose
-      Unreliable: false
-      Value: true
+      Unreliable: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 32; 74; 135
-      Enabled: true
+      Color: 91; 24; 157
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -858,8 +860,8 @@ Visualization Manager:
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
       Topic: /mean_path
-      Unreliable: false
-      Value: true
+      Unreliable: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
@@ -868,7 +870,7 @@ Visualization Manager:
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
-      Line Style: Billboards
+      Line Style: Lines
       Line Width: 0.029999999329447746
       Name: Path
       Offset:
@@ -892,7 +894,7 @@ Visualization Manager:
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
-      Line Style: Billboards
+      Line Style: Lines
       Line Width: 0.029999999329447746
       Name: Path
       Offset:
@@ -996,6 +998,46 @@ Visualization Manager:
       Topic: /GICP_pose
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz/Pose
+      Color: 32; 74; 135
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: Pose
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /base_gt_original
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 32; 74; 135
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /base_gt_path_original
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -1024,7 +1066,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 13.821215629577637
+      Distance: 24.5178165435791
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -1032,17 +1074,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 5.538431644439697
-        Y: 1.2284677028656006
-        Z: -0.45412784814834595
+        X: 7.9601287841796875
+        Y: 7.1337809562683105
+        Z: -10.117124557495117
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.4197964668273926
+      Pitch: 1.399796485900879
       Target Frame: <Fixed Frame>
-      Yaw: 1.5672111511230469
+      Yaw: 1.5822113752365112
     Saved: ~
 Window Geometry:
   Displays:
@@ -1063,4 +1105,4 @@ Window Geometry:
     collapsed: true
   Width: 1848
   X: 72
-  Y: 185
+  Y: 27

@@ -1378,6 +1378,11 @@ public:
                 new_laser_to_map_msgs = tf2::toMsg(new_laser_to_map);
                 new_laser_to_map_eigen = tf2::transformToEigen(new_laser_to_map_msgs);
                 pcl::transformPointCloud(*scan_pc,*PLICP_aligned_pc,new_laser_to_map_eigen.matrix());
+                //set all points z = 0
+                for (size_t i=0; i<PLICP_aligned_pc->size(); i++) 
+                {
+                    PLICP_aligned_pc->points[i].z = 0;
+                }
                 aligned_pc_publish(PLICP_aligned_pc);
                 //draw the path of AMCL+PLICP and origin AMCL
                 PLICP_pose_path_publisher();
