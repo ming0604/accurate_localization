@@ -31,6 +31,8 @@ private:
     ros::Publisher base_gt_path_original_pub;
     ros::Publisher gt_pose_as_base_pub;
     ros::Publisher gt_pose_as_base_path_pub;
+    ros::Publisher base_gt_vive_yaw_edit_pub;
+    ros::Publisher base_gt_path_vive_yaw_edit_pub;
 
     tf2::Transform vive_to_viveodom_transform_tf2;
     tf2_ros::Buffer tfBuffer;
@@ -48,17 +50,22 @@ private:
     double base_init_x;
     double base_init_y;
     double base_init_yaw;
+    double tracker_yaw_adding;
     bool getvivetf;
     bool calibration;
+    bool vive_yaw_edit;
 
     geometry_msgs::TransformStamped base_to_vive;
     geometry_msgs::TransformStamped vive_odom_to_map;
     tf2::Transform base_to_vive_tf2;
+    tf2::Transform base_to_vive_tf2_edit;
     tf2::Transform vive_odom_to_map_tf2;
     tf2::Transform vive_odom_to_map_tf2_original;
+    tf2::Transform vive_odom_to_map_tf2_edit;
     tf2::Transform base_to_map_init_tf2;
     tf2::Transform base_to_map_tf2;
     tf2::Transform base_to_map_tf2_original;
+    tf2::Transform base_to_map_tf2_vive_yaw_edit;
     geometry_msgs::Transform base_to_map;
 
     geometry_msgs::PoseStamped base_gt_pose;
@@ -67,6 +74,8 @@ private:
     nav_msgs::Path base_gt_path_original;
     geometry_msgs::PoseStamped gt_pose_as_base;
     nav_msgs::Path gt_pose_as_base_path;
+    geometry_msgs::PoseStamped base_gt_pose_vive_yaw_edit;
+    nav_msgs::Path base_gt_path_vive_yaw_edit;
 
 
     tf::Transform base_to_vive_gt_tf;
@@ -85,11 +94,16 @@ public:
         //publish base gt which is directly same as gt original data
         gt_pose_as_base_pub = _nh.advertise<geometry_msgs::PoseStamped>("/gt_as_base_gt",1);
         gt_pose_as_base_path_pub = _nh.advertise<nav_msgs::Path>("/gt_as_base_gt_path", 1);
+        //publish base gt which is using the vive yaw calibration coordinate
+        base_gt_vive_yaw_edit_pub = _nh.advertise<geometry_msgs::PoseStamped>("/base_gt_vive_yaw_edit",1);
+        base_gt_path_vive_yaw_edit_pub = _nh.advertise<nav_msgs::Path>("/base_gt_path_vive_yaw_edit",1);
         getvivetf = false;
         _nh.param("do_calibration", calibration, false);
+        _nh.param("vive_yaw_edit", vive_yaw_edit, false);
         _nh.param("base_link_initial_pose_x", base_init_x , 0.0);
         _nh.param("base_link_initial_pose_y", base_init_y , 0.0);
         _nh.param("base_link_initial_pose_yaw", base_init_yaw , 0.0);
+        _nh.param("edition_plus_on_tracker_yaw", tracker_yaw_adding , 0.0);
     }
     ~base_gt()
     {}
@@ -141,10 +155,33 @@ public:
                     tf2::convert(vive_odom_to_map.transform,vive_odom_to_map_tf2);
                 }
                 
+                //edit the vive's yaw relative to the base 
+                if(vive_yaw_edit)
+                {   
+                    //edit vive_odom angle
+                    double vive_odom_original_yaw_on_map = tf2::getYaw(vive_odom_to_map_tf2.getRotation());
+                    vive_odom_to_map_tf2_edit = vive_odom_to_map_tf2;
+                    tf2::Quaternion temp_q;
+                    temp_q.setRPY(0.0, 0.0, vive_odom_original_yaw_on_map + tracker_yaw_adding);
+                    vive_odom_to_map_tf2_edit.setRotation(temp_q);
+
+                    //edit vive_pose angle
+                    double vive_pose_original_yaw_on_base = tf2::getYaw(base_to_vive_tf2.inverse().getRotation());
+                    temp_q.setRPY(0.0, 0.0, vive_pose_original_yaw_on_base + tracker_yaw_adding);
+                    tf2::Transform vive_to_base = base_to_vive_tf2.inverse();
+                    vive_to_base.setRotation(temp_q);
+                    base_to_vive_tf2_edit = vive_to_base.inverse();
+                }
+
                 cout << "vive_odom_to_map: " << "x:" << vive_odom_to_map_tf2.getOrigin().x() << " y:" << vive_odom_to_map_tf2.getOrigin().y()
                 << " yaw:" << tf2::getYaw(vive_odom_to_map_tf2.getRotation()) << endl;
+                cout << "vive_odom_to_base yaw: " << tf2::getYaw(vive_odom_to_map_tf2.getRotation())- base_init_yaw << endl;
                 cout << "vive_pose_to_base: " << "x:" << base_to_vive_tf2.inverse().getOrigin().x() << " y:" << base_to_vive_tf2.inverse().getOrigin().y()
                 << " yaw:" << tf2::getYaw(base_to_vive_tf2.inverse().getRotation()) << endl;
+                cout << "vive_odom_to_map_edit: " << "x:" << vive_odom_to_map_tf2_edit.getOrigin().x() << " y:" << vive_odom_to_map_tf2_edit.getOrigin().y()
+                << " yaw:" << tf2::getYaw(vive_odom_to_map_tf2_edit.getRotation()) << endl;
+                cout << "vive_pose_to_base_edit: " << "x:" << base_to_vive_tf2_edit.inverse().getOrigin().x() << " y:" <<  base_to_vive_tf2_edit.inverse().getOrigin().y()
+                << " yaw:" << tf2::getYaw( base_to_vive_tf2_edit.inverse().getRotation()) << endl;
                 getvivetf = true;
             }
             catch (tf2::TransformException &ex)
@@ -186,6 +223,16 @@ public:
         gt_pose_as_base.header.stamp = viveMsg->header.stamp;
         gt_pose_as_base.header.frame_id = "map";
         gt_pose_as_base_pub.publish(gt_pose_as_base);
+
+
+        //publish the base_gt which used yaw editing vive coordinates
+        base_to_map_tf2_vive_yaw_edit = vive_odom_to_map_tf2_edit*vive_to_viveodom_transform_tf2*base_to_vive_tf2_edit;
+        tf2::toMsg(base_to_map_tf2_vive_yaw_edit, base_gt_pose_vive_yaw_edit.pose);
+        base_gt_pose_vive_yaw_edit.header.stamp = viveMsg->header.stamp;
+        base_gt_pose_vive_yaw_edit.header.frame_id = "map";
+        base_gt_vive_yaw_edit_pub.publish(base_gt_pose_vive_yaw_edit);
+
+
         /*
         //get base_link to vive tacker transform and vive_odom to map transform
         //tf1_version
@@ -261,6 +308,14 @@ public:
         gt_pose_as_base_path.header.stamp = viveMsg->header.stamp;
         gt_pose_as_base_path.poses.push_back(gt_pose_as_base);
         gt_pose_as_base_path_pub.publish(gt_pose_as_base_path);    
+
+
+        //publish base_gt path which used yaw editing vive coordinates
+        base_gt_path_vive_yaw_edit.header.frame_id = "map";
+        base_gt_path_vive_yaw_edit.header.stamp = viveMsg->header.stamp;
+        base_gt_path_vive_yaw_edit.poses.push_back(base_gt_pose_vive_yaw_edit);
+        base_gt_path_vive_yaw_edit_pub.publish(base_gt_path_vive_yaw_edit);   
+
 
         /*
         //validation
