@@ -3,13 +3,21 @@
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
     <param name="/use_sim_time" value="false" />
     <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1114_map.yaml">-->
-    <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1016_map05.yaml">
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1016_map05.yaml">-->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test4_2.5map.yaml">-->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test5_2.5map.yaml">-->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test5_1map.yaml">-->
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test5_5map.yaml">
     
     </node>
 
     <node pkg="accurate_localization" type="grid_to_pc_map" name="grid_to_pc_map" output="screen">
         <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/1114_map.pcd"/>-->
-        <param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/1016_map05.pcd"/>
+        <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/1016_map05.pcd"/>-->
+        <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test4_2.5map.pcd"/>-->
+        <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test5_2.5map.pcd"/>-->
+        <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test5_1map.pcd"/>-->
+        <param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test5_5map.pcd"/>
     </node>
 
 </launch>
