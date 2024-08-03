@@ -169,6 +169,12 @@ private:
     Eigen::Matrix4f init_guess;
     Eigen::Matrix4f icp_result_transform;
 
+    std::string odom_frame_id;
+    std::string base_frame_id;
+    std::string laser_frame_id;
+    std::string global_frame_id;
+    
+
     std::string amcl_time_save_path;
     std::string scan_matching_time_save_path;
     std::string scan_matching_pose_time_save_path;
@@ -227,7 +233,11 @@ public:
         _nh.param("re_initial_cov_aa", cov_yawyaw, init_cov_[2]);
         _nh.param<string>("scan_match_method", scan_match_method_Str ,"PLICP");
         _nh.param<string>("pc_map_path", pc_map_path ,"/Default/path");
-        
+        _nh.param<string>("odom_frame_id", odom_frame_id ,"odom_frame");
+        _nh.param<string>("base_frame_id", base_frame_id ,"base_link");
+        _nh.param<string>("Lidar_frame_id", laser_frame_id ,"laser");
+        _nh.param<string>("global_frame_id", global_frame_id ,"map");
+
         if(scan_match_method_Str == "ICP")
         {
             method = ICP;
@@ -453,7 +463,7 @@ public:
         sensor_msgs::PointCloud2 map_pc_msg;
         pcl::toROSMsg(*map_pc,map_pc_msg);
         map_pc_msg.header.stamp = ros::Time::now();
-        map_pc_msg.header.frame_id = "map";
+        map_pc_msg.header.frame_id = global_frame_id;
         map_pc_pub.publish(map_pc_msg);
         ROS_INFO("point cloud map is published successfully");
     }
@@ -461,7 +471,7 @@ public:
     {
         try{
             //"base_link is target,laser is source"
-            laser_to_base = tfBuffer.lookupTransform("base_link", "laser", ros::Time(0));
+            laser_to_base = tfBuffer.lookupTransform(base_frame_id, laser_frame_id, ros::Time(0));
             tf2::fromMsg(laser_to_base.transform,laser_to_base_tf2);
             laser_to_base_eigen = tf2::transformToEigen(laser_to_base.transform);
             laser_to_base_received = true;
@@ -478,7 +488,7 @@ public:
     {
         try{
             //"base_link is target,odom is source"
-            odom_to_base = tfBuffer.lookupTransform("base_link", "odom_frame", t);
+            odom_to_base = tfBuffer.lookupTransform(base_frame_id, odom_frame_id, t);
             tf2::fromMsg(odom_to_base.transform,odom_to_base_tf2);
         }
         catch (tf2::TransformException& ex) {
@@ -902,9 +912,9 @@ public:
         tf2_odom_to_map = new_base_to_map*odom_to_base_tf2;
 
         geometry_msgs::TransformStamped odom_to_map_tf_stamped;
-        odom_to_map_tf_stamped.header.frame_id = "map";
+        odom_to_map_tf_stamped.header.frame_id = global_frame_id;
         odom_to_map_tf_stamped.header.stamp = ros::Time::now();
-        odom_to_map_tf_stamped.child_frame_id = "odom_frame";
+        odom_to_map_tf_stamped.child_frame_id = odom_frame_id;
         tf2::convert(tf2_odom_to_map, odom_to_map_tf_stamped.transform);
         br.sendTransform(odom_to_map_tf_stamped);
         ROS_INFO("odom_to_map has been corrected\n");
@@ -984,7 +994,7 @@ public:
         myQuaternion.normalize();
 
         init_pose.header.stamp = ros::Time::now();
-        init_pose.header.frame_id = "map";
+        init_pose.header.frame_id = global_frame_id;
 
         init_pose.pose.pose.position.x = PLICP_pose_x;
         init_pose.pose.pose.position.y = PLICP_pose_y;
@@ -1032,7 +1042,7 @@ public:
         myQuaternion.normalize();
 
         pose.header.stamp = scan_time_stamp;
-        pose.header.frame_id = "map";
+        pose.header.frame_id = global_frame_id;
 
         pose.pose.position.x = PLICP_pose_x;
         pose.pose.position.y = PLICP_pose_y;
@@ -1062,7 +1072,7 @@ public:
         }
         
         //pub path of PLICP poses
-        PLICP_path.header.frame_id = "map";
+        PLICP_path.header.frame_id = global_frame_id;
         PLICP_path.header.stamp = scan_time_stamp;
         PLICP_path.poses.push_back(pose);
         PLICP_path_pub.publish(PLICP_path);
@@ -1074,7 +1084,7 @@ public:
         geometry_msgs::PoseStamped pose;
         transform_double = transform.cast<double>();
         pose.header.stamp = scan_time_stamp;
-        pose.header.frame_id = "map";
+        pose.header.frame_id = global_frame_id;
 
         //pub icp pose
         T = transform_double;
@@ -1096,7 +1106,7 @@ public:
             last_scan_matching_time = scan_matching_pub_now;
         }
         //pub icp path
-        ICP_path.header.frame_id = "map";
+        ICP_path.header.frame_id = global_frame_id;
         ICP_path.header.stamp = scan_time_stamp;
         ICP_path.poses.push_back(pose);
         ICP_path_pub.publish(ICP_path);
@@ -1107,7 +1117,7 @@ public:
         sensor_msgs::PointCloud2 pc_msg;
         pcl::toROSMsg(*pc,pc_msg);
         pc_msg.header.stamp = scan_time_stamp;
-        pc_msg.header.frame_id = "map";
+        pc_msg.header.frame_id = global_frame_id;
         aligned_pc_pub.publish(pc_msg);
         ROS_INFO("aligned point cloud is published successfully");
     }
@@ -1192,7 +1202,7 @@ public:
         sensor_msgs::PointCloud2 scan_pc_msg;
         pcl::toROSMsg(*scan_pc, scan_pc_msg);
         scan_pc_msg.header.stamp = scan_time_stamp;
-        scan_pc_msg.header.frame_id = "laser";
+        scan_pc_msg.header.frame_id = laser_frame_id;
         scan_pc_pub.publish(scan_pc_msg);
         ROS_INFO("scan_pc published");
         //get the laser to base_link tf
@@ -1354,13 +1364,13 @@ public:
                 sensor_msgs::PointCloud2 virtual_pc_msg;
                 pcl::toROSMsg(*virtual_pc, virtual_pc_msg);
                 virtual_pc_msg.header.stamp = scan_time_stamp;
-                virtual_pc_msg.header.frame_id = "map";
+                virtual_pc_msg.header.frame_id = global_frame_id;
                 virtual_pc_pub.publish(virtual_pc_msg);
                 ROS_INFO("virtual_pc published");
                 
                 //create the virtual scan
                 virtual_scan.header.stamp = scan_time_stamp;
-                virtual_scan.header.frame_id = "laser";
+                virtual_scan.header.frame_id = laser_frame_id;
                 virtual_scan.angle_min = laser_angle_min;
                 virtual_scan.angle_max = laser_angle_max;
                 virtual_scan.angle_increment = laser_angle_increment;

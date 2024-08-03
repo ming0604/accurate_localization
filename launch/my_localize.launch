@@ -108,6 +108,11 @@
         <param name="amcl_time_save_path" type="string" value="$(find accurate_localization)/result/amcl_time.csv" />
         <param name="scan_matching_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_count_time.csv" />
         <param name="scan_matching_pose_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_pose_pub_time.csv" />
+        <param name="odom_frame_id" value="odom_frame"/>
+        <param name="base_frame_id" value="base_link"/>
+        <param name="Lidar_frame_id" value="laser"/>
+        <param name="global_frame_id" value="map"/>
+        
         <param name="use_reinitiate" value="false"/>
         <param name="re_initial_cov_xx" value="0.25"/>
         <param name="re_initial_cov_yy" value="0.25"/>
@@ -123,13 +128,12 @@
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
         <param name="do_calibration" value="true"/>
         <param name="vive_yaw_edit" value="true"/>
-        <param name="base_link_initial_pose_x" value="0.006018"/>
-        <param name="base_link_initial_pose_y" value="0.000459"/>
-        <param name="base_link_initial_pose_yaw" value="-0.000007"/>
-        <param name="edition_plus_on_tracker_yaw" value="0.02"/>
+        <param name="base_link_initial_pose_x" value="0.00"/>
+        <param name="base_link_initial_pose_y" value="0.00"/>
+        <param name="base_link_initial_pose_yaw" value="0.00"/>
+        <param name="edition_plus_on_tracker_yaw" value="-0.002"/>
     </node>
     
-    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20240710_test7_openloop_PLICP_20240705_test5_1map_ICP_use_1map_calid2 -a"/> -->
-    
+    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20240720_loop_openloop_PLICP_20240705_test5_1map_ICP_use_1map_calid -a"/> -->
 
 </launch>
