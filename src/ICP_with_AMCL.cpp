@@ -69,6 +69,7 @@ private:
     bool map_received;
     bool laser_to_base_received;
     bool pc_map_received;
+    bool laser_upsidedown;
     //map<ros::Time, sensor_msgs::LaserScan> scan_dic;
     sensor_msgs::LaserScan scan_data;
 
@@ -197,6 +198,7 @@ public:
         map_received = false;
         pc_map_received = false;
         laser_to_base_received = false;
+        laser_upsidedown = false;
         init_guess.setIdentity();
         map_pc.reset(new pcl::PointCloud<pcl::PointXYZ>);
         scan_pc_at_base.reset(new pcl::PointCloud<pcl::PointXYZ>);
@@ -473,6 +475,28 @@ public:
             //"base_link is target,laser is source"
             laser_to_base = tfBuffer.lookupTransform(base_frame_id, laser_frame_id, ros::Time(0));
             tf2::fromMsg(laser_to_base.transform,laser_to_base_tf2);
+
+            //get the lidar's YPR with respect to the base_link
+            double yaw,pitch,roll;
+            tf2::getEulerYPR(laser_to_base_tf2.getRotation(),yaw,pitch,roll);
+            ROS_INFO("Lidar to base yaw:%f, pitch:%f, roll:%f",yaw,pitch,roll);
+
+            //check if LIDAR is upside down
+            const double epsilon = 0.001;
+            if(fabs(fabs(roll)- M_PI) < epsilon)
+            {
+                laser_upsidedown = true;
+                ROS_INFO("Laser is upside down");
+            }
+            else if(fabs(roll) < epsilon)
+            {
+                laser_upsidedown = false;
+                ROS_INFO("Laser is not upside down");
+            }
+            else
+            {
+                ROS_WARN("Laser roll is neither close to 0 nor ±π: %f", roll);
+            }
             laser_to_base_eigen = tf2::transformToEigen(laser_to_base.transform);
             laser_to_base_received = true;
         }
@@ -591,7 +615,16 @@ public:
             int y_grid = laser_y_grid;
             float angle,x_map,y_map,m;
             bool find_vir_flag=false;
-            angle = laser_yaw -(laser_angle_min + i * laser_angle_increment);
+
+            //how to count the angle's value depends on whether the laser is upside down
+            if(laser_upsidedown)
+            {
+                angle = laser_yaw -(laser_angle_min + i * laser_angle_increment);
+            }
+            else
+            {
+                angle = laser_yaw +(laser_angle_min + i * laser_angle_increment);
+            }
             
             if(angle>2.0*M_PI)
             {
