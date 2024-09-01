@@ -292,7 +292,7 @@ public:
         // Maximum translation between scans (m)
         if (!private_node_.getParam("max_linear_correction", input_.max_linear_correction))
         {
-             input_.max_linear_correction = 3;
+             input_.max_linear_correction = 1;
         }   
 
         // Maximum ICP cycle iterations
@@ -316,7 +316,7 @@ public:
         // Maximum distance for a correspondence to be valid
         if (!private_node_.getParam("max_correspondence_dist", input_.max_correspondence_dist))
         {
-            input_.max_correspondence_dist = 3.0;
+            input_.max_correspondence_dist = 0.3;
         }    
 
         // Noise in the scan (m)
@@ -889,7 +889,7 @@ public:
             else
             {
                 ldp->valid[i] = 0;
-                ldp->readings[i] = -1;  // for invalid range
+                ldp->readings[i] = NAN;  // for invalid range
             }
             angle = laser_angle_min + i * laser_angle_increment;
             ldp->theta[i] = angle;
@@ -1461,7 +1461,7 @@ public:
 
 int main(int argc, char** argv) 
 {
-    ros::init (argc, argv, "scan");
+    ros::init (argc, argv, "ICP_with_AMCL");
     ros::NodeHandle nh("~");
     ICP_with_AMCL ICP_with_AMCL(nh);
 
