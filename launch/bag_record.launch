@@ -1,6 +1,9 @@
 <launch>
-    <param name="/use_sim_time" value="false" />
+    <param name="/use_sim_time" value="true" />
+
+    <arg name="bags_directory" value="/home/mingzhun/lab_localization/bag"/>
+    <arg name="record_prefix" default="agv" />
     <node pkg="rosbag" type="record" name="rosbag_record" 
-        args="-a -o /home/mingzhun/lab_localization/bag/tftest" />
+        args="-a -o $(arg bags_directory)/$(arg record_prefix)" />
 
 </launch>  

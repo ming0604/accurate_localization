@@ -1,0 +1,8 @@
+<launch>
+  <arg name="map_file" default="/home/mingzhun/lab_localization/src/husky/husky_navigation/maps/husky_gmap_20240804_test1_b1_5map"/>
+
+
+  <node name="map_saver" pkg="map_server" type="map_saver" args="-f $(arg map_file)">
+
+  </node>
+</launch>
