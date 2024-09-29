@@ -1,9 +1,38 @@
 <launch>
     <param name="/use_sim_time" value="true" />
 
+    
     <arg name="bags_directory" value="/home/mingzhun/lab_localization/bag"/>
     <arg name="record_prefix" default="agv" />
-    <node pkg="rosbag" type="record" name="rosbag_record" 
+    <!--<node pkg="rosbag" type="record" name="rosbag_record" 
         args="-a -o $(arg bags_directory)/$(arg record_prefix)" />
-
+    -->
+    <!--for building Cartographer map-->    
+    <!--<node pkg="rosbag" type="record" name="rosbag_record" 
+        args="-o $(arg bags_directory)/$(arg record_prefix) 
+            /front/scan
+            /odometry/filtered
+            /tf
+            /tf_static
+            /imu/data"
+        />-->
+    <!--for building Gmapping map-->    
+    <!--<node pkg="rosbag" type="record" name="rosbag_record" 
+        args="-o $(arg bags_directory)/$(arg record_prefix) 
+            /front/scan
+            /odometry/filtered
+            /tf
+            /tf_static"
+        />-->
+    <!--for localization bag-->    
+    <!---->
+        <node pkg="rosbag" type="record" name="rosbag_record" 
+        args="-o $(arg bags_directory)/$(arg record_prefix) 
+            /front/scan
+            /odometry/filtered
+            /tf
+            /tf_static
+            /ground_truth/state"
+        />
+ 
 </launch>  
