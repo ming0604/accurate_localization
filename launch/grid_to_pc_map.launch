@@ -7,7 +7,10 @@
     <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test4_2.5map.yaml">-->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test5_2.5map.yaml">-->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test5_1map.yaml">-->
-    <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test5_5map.yaml">
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20240705_test5_5map.yaml">-->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20250105_gmap_test2.yaml">-->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/20241218_vive_mapping_test3.yaml">-->
+    <node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250119_gmap_test3.yaml">
     
     </node>
 
@@ -17,7 +20,9 @@
         <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test4_2.5map.pcd"/>-->
         <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test5_2.5map.pcd"/>-->
         <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test5_1map.pcd"/>-->
-        <param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test5_5map.pcd"/>
+        <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20240705_test5_5map.pcd"/>-->
+        <!--<param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20241218_vive_mapping_test3.pcd"/>-->
+        <param name="map_name" type="str" value="$(find accurate_localization)/src/pc_map/20250119_gmap_test3.pcd"/>
     </node>
 
 </launch>

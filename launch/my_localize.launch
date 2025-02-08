@@ -26,7 +26,13 @@
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20240705_test4_2.5map.yaml"/> -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20240705_test5_2.5map.yaml"/> -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20240705_test5_5map.yaml"/>  -->
-    <node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20240705_test5_1map.yaml"/> 
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20240705_test5_1map.yaml"/>-->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250105_gmap_test2.yaml"/> -->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20241218_vive_mapping_test3.yaml"/> -->
+    <node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250115_vive_local_map_5m_test2.yaml"/> 
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250115_vive_local_map_10m_test2.yaml"/> -->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250119_gmap_test3.yaml"/> -->
+
     <!-- Robot Localization using ekf
     <include file="$(find sdc)/launch/ekf_localization.launch"/> -->
 
@@ -57,9 +63,9 @@
         <param name="recovery_alpha_fast" value="0.1"/>
         <!-- <param name="recovery_alpha_slow" value="0"/>
         <param name="recovery_alpha_fast" value="0"/> -->
-        <param name="initial_pose_x" value="0.0"/>
-        <param name="initial_pose_y" value="0.0"/>
-        <param name="initial_pose_a" value="0.0"/>
+        <param name="initial_pose_x" value="8.463384"/>
+        <param name="initial_pose_y" value="-0.037130"/>
+        <param name="initial_pose_a" value="3.138857"/>
         <param name="initial_cov_xx" value="0.25"/>
         <param name="initial_cov_yy" value="0.25"/>
         <param name="initial_cov_aa" value="0.069"/>
@@ -126,14 +132,21 @@
     </node>
 
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
-        <param name="do_calibration" value="true"/>
-        <param name="vive_yaw_edit" value="true"/>
-        <param name="base_link_initial_pose_x" value="0.00"/>
-        <param name="base_link_initial_pose_y" value="0.00"/>
-        <param name="base_link_initial_pose_yaw" value="0.00"/>
+        <param name="do_calibration" value="false"/>
+        <param name="vive_yaw_edit" value="false"/>
+        <param name="base_link_initial_pose_x" value="0.019625"/>
+        <param name="base_link_initial_pose_y" value="-0.005563"/>
+        <param name="base_link_initial_pose_yaw" value="-0.002845"/>
         <param name="edition_plus_on_tracker_yaw" value="-0.002"/>
     </node>
+    <!---->
+    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/2025_02_06_reverse_test6_openloop_PLICP_20250115_vive_local_map_5m_test2_no_calid
+            /tf
+            /tf_static
+            /base_gt_odom
+            /base_gt
+            /amcl_pose
+            /PLICP_pose"
+    /> 
     
-    <!--<node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20240720_loop_openloop_PLICP_20240705_test5_1map_ICP_use_1map_calid -a"/> -->
-
 </launch>

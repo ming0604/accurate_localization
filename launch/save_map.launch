@@ -1,5 +1,5 @@
 <launch>
-  <arg name="map_file" default="/home/mingzhun/lab_localization/src/husky/husky_navigation/maps/husky_gmap_20240804_test1_b1_5map"/>
+  <arg name="map_file" default="/home/mingzhun/lab_localization/src/husky/husky_navigation/maps/20241110_vive_mapper_simu_map_2.5"/>
 
 
   <node name="map_saver" pkg="map_server" type="map_saver" args="-f $(arg map_file)">
