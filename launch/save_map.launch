@@ -1,8 +1,8 @@
 <launch>
-  <arg name="map_file" default="/home/mingzhun/lab_localization/src/husky/husky_navigation/maps/20241110_vive_mapper_simu_map_2.5"/>
-
+  <arg name="map_file" default="/home/mingzhun/lab_localization/src/husky/husky_navigation/maps/vive_mapping_origin_test"/>
 
   <node name="map_saver" pkg="map_server" type="map_saver" args="-f $(arg map_file)">
+    <!-- <remap from="/map" to="/map_merge/map"/> -->
 
   </node>
 </launch>

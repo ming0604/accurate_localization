@@ -237,12 +237,94 @@ Visualization Manager:
       Unreliable: false
       Value: true
     - Class: rviz/TF
-      Enabled: false
+      Enabled: true
       Filter (blacklist): ""
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
-        All Enabled: true
+        All Enabled: false
+        back_laser:
+          Value: false
+        back_laser_mount:
+          Value: false
+        base_link:
+          Value: false
+        camera_mount:
+          Value: false
+        d435_bottom_screw_frame:
+          Value: false
+        d435_color_frame:
+          Value: false
+        d435_color_optical_frame:
+          Value: false
+        d435_infra1_frame:
+          Value: false
+        d435_infra1_optical_frame:
+          Value: false
+        d435_link:
+          Value: false
+        laser:
+          Value: false
+        laser_mount:
+          Value: false
+        lb_wheel:
+          Value: false
+        lf_wheel:
+          Value: false
+        map:
+          Value: true
+        odom_frame:
+          Value: false
+        rb_wheel:
+          Value: false
+        rf_wheel:
+          Value: false
+        t265_accel_frame:
+          Value: false
+        t265_accel_optical_frame:
+          Value: false
+        t265_fisheye1_frame:
+          Value: false
+        t265_fisheye1_optical_frame:
+          Value: false
+        t265_fisheye2_frame:
+          Value: false
+        t265_fisheye2_optical_frame:
+          Value: false
+        t265_gyro_frame:
+          Value: false
+        t265_imu_optical_frame:
+          Value: false
+        t265_link:
+          Value: false
+        t265_odom_frame:
+          Value: false
+        t265_pose_frame:
+          Value: false
+        tm_arm_1_link:
+          Value: false
+        tm_arm_2_link:
+          Value: false
+        tm_base:
+          Value: false
+        tm_base_link:
+          Value: false
+        tm_flange_link:
+          Value: false
+        tm_shoulder_1_link:
+          Value: false
+        tm_tool0:
+          Value: false
+        tm_wrist_1_link:
+          Value: false
+        tm_wrist_2_link:
+          Value: false
+        tm_wrist_3_link:
+          Value: false
+        vive_odom:
+          Value: false
+        vive_pose:
+          Value: false
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -250,9 +332,64 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        map:
+          odom_frame:
+            t265_odom_frame:
+              t265_pose_frame:
+                base_link:
+                  back_laser_mount:
+                    back_laser:
+                      {}
+                  camera_mount:
+                    d435_bottom_screw_frame:
+                      d435_link:
+                        d435_color_frame:
+                          d435_color_optical_frame:
+                            {}
+                        d435_infra1_frame:
+                          d435_infra1_optical_frame:
+                            {}
+                  laser_mount:
+                    laser:
+                      {}
+                  lb_wheel:
+                    {}
+                  lf_wheel:
+                    {}
+                  rb_wheel:
+                    {}
+                  rf_wheel:
+                    {}
+                  tm_base:
+                    tm_base_link:
+                      tm_shoulder_1_link:
+                        tm_arm_1_link:
+                          tm_arm_2_link:
+                            tm_wrist_1_link:
+                              tm_wrist_2_link:
+                                tm_wrist_3_link:
+                                  tm_flange_link:
+                                    tm_tool0:
+                                      {}
+                  vive_pose:
+                    {}
+                t265_link:
+                  t265_accel_frame:
+                    t265_accel_optical_frame:
+                      {}
+                  t265_fisheye1_frame:
+                    t265_fisheye1_optical_frame:
+                      {}
+                  t265_fisheye2_frame:
+                    t265_fisheye2_optical_frame:
+                      {}
+                  t265_gyro_frame:
+                    t265_imu_optical_frame:
+                      {}
+          vive_odom:
+            {}
       Update Interval: 0
-      Value: false
+      Value: true
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -1047,4 +1184,4 @@ Window Geometry:
     collapsed: true
   Width: 1848
   X: 72
-  Y: 27
+  Y: 185

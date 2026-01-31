@@ -4,21 +4,6 @@
 
     <param name="/use_sim_time" value="true" />
     
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/nmap_4.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/new_1.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0419_14.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0612_1.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0615_51.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0705.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0727_1.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/1121_map2.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0613_2.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0731_map.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0812_m2.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0818_map.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0824_map.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/0824_25.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/home/lab816/agv_ws/src/sdc/maps/1016_map.yaml"/> -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/1016_map05.yaml"/> -->
     <!-- <node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1102_map2.yaml"/> -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="$(find amcl)/amcl_data/maps/1114_map.yaml"/> -->
@@ -29,10 +14,20 @@
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20240705_test5_1map.yaml"/>-->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250105_gmap_test2.yaml"/> -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20241218_vive_mapping_test3.yaml"/> -->
-    <node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250115_vive_local_map_5m_test2.yaml"/> 
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250115_vive_local_map_5m_test2.yaml"/> -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250115_vive_local_map_10m_test2.yaml"/> -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250119_gmap_test3.yaml"/> -->
-
+    <!--<node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find map_merging)/merging_result/20241218_vive_mapping_test3_and_20250216_vive_mapping_20m_test3_merging/merged_map_test.yaml"/> -->
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find map_merging)/merging_result/20241218_vive_mapping_test3_and_20250216_vive_mapping_20m_test3_merging_tuning/f255_occ0_un127_AKAZE_BF.yaml"/>  -->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250906_gmap_2.yaml"/>-->
+    <node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250918_gmap1.yaml"/>
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find map_merging)/merging_result/20250920_vive_local1_map3_masked_and_20250920_vive_local2_map4_masked_merging/20250920_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r09.yaml"/>  -->
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find map_merging)/merging_result/20250920_vive_local1_map3_masked_and_20251004_vive_local2_map2_masked_merging/20250920_local1_and_20251004_local2_area_masked_maps_merging_f255_occ0_un127_AKAZE_BF_r08.yaml"/> 
+       -->
     <!-- Robot Localization using ekf
     <include file="$(find sdc)/launch/ekf_localization.launch"/> -->
 
@@ -63,9 +58,9 @@
         <param name="recovery_alpha_fast" value="0.1"/>
         <!-- <param name="recovery_alpha_slow" value="0"/>
         <param name="recovery_alpha_fast" value="0"/> -->
-        <param name="initial_pose_x" value="8.463384"/>
-        <param name="initial_pose_y" value="-0.037130"/>
-        <param name="initial_pose_a" value="3.138857"/>
+        <param name="initial_pose_x" value="0.0"/>
+        <param name="initial_pose_y" value="0.0"/>
+        <param name="initial_pose_a" value="0.0"/>
         <param name="initial_cov_xx" value="0.25"/>
         <param name="initial_cov_yy" value="0.25"/>
         <param name="initial_cov_aa" value="0.069"/>
@@ -140,7 +135,7 @@
         <param name="edition_plus_on_tracker_yaw" value="-0.002"/>
     </node>
     <!---->
-    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/2025_02_06_reverse_test6_openloop_PLICP_20250115_vive_local_map_5m_test2_no_calid
+    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20250925_Jturn5_openloop_PLICP_20250918_gmap1_no_calid
             /tf
             /tf_static
             /base_gt_odom
