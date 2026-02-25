@@ -37,7 +37,7 @@ class Pose100Hz
         ros::Timer pose_timer_;
         //IMU data subscriber
         ros::Subscriber imu_sub_;
-        double imu_data_[3];
+        double imu_data_[3] = {0.0, 0.0, 0.0};
 
         geometry_msgs::TransformStamped transformStamped;
 
@@ -76,7 +76,7 @@ class Pose100Hz
             //TODO: release shared memory and semaphore(if needed)
         }
 
-}
+};
 
 void Pose100Hz::initSemShm()
 {
@@ -120,29 +120,35 @@ void Pose100Hz::poseReceived(const ros::TimerEvent& event)
     ffp.pose.pose.position.y = transformStamped.transform.translation.y;
     ffp.pose.pose.orientation = transformStamped.transform.rotation;
 
-    P(semidros);
-    // amclPtr =shmPtr_ros;
-    shmPtrros[0] = ffp.header.stamp.toNSec();
-    shmPtrros[1] = ffp.pose.pose.position.x;
-    shmPtrros[2] = ffp.pose.pose.position.y;
-    shmPtrros[3] = tf2::getYaw(ffp.pose.pose.orientation);
-    // shmPtrros[4] = (ffp.pose.pose.position.x - lp.pose.pose.position.x)/0.01;
-    // shmPtrros[5] = 0;
-    // shmPtrros[6] = 0;
-    shmPtrros[7] = imu_data_[1];
-    V(semidros);
+    // if the shared memory is used, write the pose data into shared memory
+    if(use_shm_)
+    {
+        P(semidros);
+        // amclPtr =shmPtr_ros;
+        shmPtrros[0] = ffp.header.stamp.toNSec();
+        shmPtrros[1] = ffp.pose.pose.position.x;
+        shmPtrros[2] = ffp.pose.pose.position.y;
+        shmPtrros[3] = tf2::getYaw(ffp.pose.pose.orientation);
+        // shmPtrros[4] = (ffp.pose.pose.position.x - lp.pose.pose.position.x)/0.01;
+        // shmPtrros[5] = 0;
+        // shmPtrros[6] = 0;
+        shmPtrros[7] = imu_data_[1];
+        V(semidros);
+    }
 
     // ffp.pose.covariance[0] = 0.025;
     // ffp.pose.covariance[6] = 0.025;
     // ffp.pose.covariance[35] = 0.001;
 
+    // publish the pose at 100Hz on the topic "freq_pose"
     fixed_freq_pose_pub_.publish(ffp);
     // lp.pose.pose.position.x = ffp.pose.pose.position.x;
     // lp.pose.pose.position.y = ffp.pose.pose.position.y;
   }
   catch(tf2::TransformException &ex){
-    ROS_ERROR("%s",ex.what());
-    ros::Duration(1.0).sleep();
+    // use ROS_ERROR_THROTTLE to constrain the error message output to 1Hz, avoiding flooding the console
+    ROS_ERROR_THROTTLE(1.0, "%s", ex.what());
+    // ros::Duration(1.0).sleep();
   }
 }
 
