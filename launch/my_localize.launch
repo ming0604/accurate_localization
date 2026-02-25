@@ -70,7 +70,7 @@
         <param name="use_map_topic" value="true"/>
         <param name="first_map_only" value="false"/>
         <param name="selective_resampling" value="false"/>
-        <param name="tf_broadcast" value="true"/>
+        <param name="tf_broadcast" value="true"/>        
 
         <!-- laser model parameters -->
         <param name="laser_min_range" value="0.06"/>
@@ -115,6 +115,8 @@
         <param name="global_frame_id" value="map"/>
         
         <param name="use_reinitiate" value="false"/>
+        <param name="publish_odometry_drift_correction_tf" value="false"/>
+        <param name="transform_tolerance" value="0.1"/>
         <param name="re_initial_cov_xx" value="0.25"/>
         <param name="re_initial_cov_yy" value="0.25"/>
         <param name="re_initial_cov_aa" value="0.069"/>
@@ -134,7 +136,7 @@
         <param name="base_link_initial_pose_yaw" value="-0.002845"/>
         <param name="edition_plus_on_tracker_yaw" value="-0.002"/>
     </node>
-    <!---->
+    <!--
     <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20250925_Jturn5_openloop_PLICP_20250918_gmap1_no_calid
             /tf
             /tf_static
@@ -142,6 +144,6 @@
             /base_gt
             /amcl_pose
             /PLICP_pose"
-    /> 
+    /> -->
     
 </launch>
