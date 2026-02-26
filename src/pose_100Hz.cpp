@@ -58,7 +58,7 @@ class Pose100Hz
             // get parameters from launch file
             private_nh_.param<string>("global_frame_id", global_frame_id_, "map");
             private_nh_.param<string>("base_frame_id", base_frame_id_, "base_link");
-            private_nh_.param("use_shared_memory", use_shm_, true);
+            private_nh_.param("use_shared_memory", use_shm_, false);
 
             // initialize shared memory and semaphore(if needed)
             if(use_shm_)
@@ -116,6 +116,7 @@ void Pose100Hz::poseReceived(const ros::TimerEvent& event)
     
   try{
     transformStamped = tfBuffer.lookupTransform(global_frame_id_, base_frame_id_, ros::Time(0));
+    ROS_INFO("Got transform of %s to %s at time %f", base_frame_id_.c_str(), global_frame_id_.c_str(), transformStamped.header.stamp.toSec());
     ffp.pose.pose.position.x = transformStamped.transform.translation.x;
     ffp.pose.pose.position.y = transformStamped.transform.translation.y;
     ffp.pose.pose.orientation = transformStamped.transform.rotation;
