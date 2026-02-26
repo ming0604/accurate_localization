@@ -165,6 +165,8 @@ target_link_libraries(tf_static_test ${catkin_LIBRARIES} )
 add_executable(tf_test_bag_listening src/tf_test_bag_listening.cpp)
 target_link_libraries(tf_test_bag_listening ${catkin_LIBRARIES} )
  
+add_executable(pose_100Hz src/pose_100Hz.cpp)
+target_link_libraries(pose_100Hz ${catkin_LIBRARIES} )
 
 
 
