@@ -237,7 +237,7 @@ public:
         _nh.param<string>("scan_matching_pose_time_save_path", scan_matching_pose_time_save_path,"/Default/path");
         _nh.param("use_reinitiate", reinit , false);
         _nh.param("publish_odometry_drift_correction_tf", pub_odom_drift_tf, true);
-        _nh.param("transform_tolerance", tmp_tol, 0.1);
+        _nh.param("transform_tolerance", tmp_tol, 0.12);
         _nh.param("re_initial_cov_xx", cov_xx , init_cov_[0]);
         _nh.param("re_initial_cov_yy", cov_yy, init_cov_[1]);
         _nh.param("re_initial_cov_aa", cov_yawyaw, init_cov_[2]);
