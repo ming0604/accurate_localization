@@ -24,7 +24,7 @@ int V(int s);
 
 using namespace std;
 
-class Pose100Hz
+class HighFreqPose
 {
     private:
         ros::NodeHandle nh_;
@@ -37,6 +37,7 @@ class Pose100Hz
         ros::Timer pose_timer_;
         //IMU data subscriber
         ros::Subscriber imu_sub_;
+        double get_pose_freq_;
         double imu_data_[3] = {0.0, 0.0, 0.0};
 
 
@@ -52,7 +53,7 @@ class Pose100Hz
         void imuReceived(const sensor_msgs::ImuConstPtr& msg);
         
     public:
-        Pose100Hz(): tfListener(tfBuffer), private_nh_("~")
+        HighFreqPose(): tfListener(tfBuffer), private_nh_("~")
         {   
             
             // get parameters from launch file
@@ -60,6 +61,7 @@ class Pose100Hz
             private_nh_.param<string>("odom_frame_id", odom_frame_id_, "odom");
             private_nh_.param<string>("base_frame_id", base_frame_id_, "base_link");
             private_nh_.param("use_shared_memory", use_shm_, false);
+            private_nh_.param("get_pose_frequency", get_pose_freq_, 100.0);
 
             // initialize shared memory and semaphore(if needed)
             if(use_shm_)
@@ -67,19 +69,19 @@ class Pose100Hz
                 initSemShm();
             }
                 
-            imu_sub_ = nh_.subscribe("t265/imu", 2, &Pose100Hz::imuReceived, this);
+            imu_sub_ = nh_.subscribe("t265/imu", 2, &HighFreqPose::imuReceived, this);
             // publisher and timer for 100Hz take pose from tf tree
             fixed_freq_pose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("freq_pose", 2, true);
-            pose_timer_ = nh_.createTimer(ros::Duration(0.01), &Pose100Hz::poseReceived, this);
+            pose_timer_ = nh_.createTimer(ros::Duration(1.0/get_pose_freq_), &HighFreqPose::poseReceived, this);
         }
-        ~Pose100Hz()
+        ~HighFreqPose()
         {
             //TODO: release shared memory and semaphore(if needed)
         }
 
 };
 
-void Pose100Hz::initSemShm()
+void HighFreqPose::initSemShm()
 {
     // ======================== shm init ========================
     if((shmidros = shmget(shmKeyros, page_size, IPC_CREAT | 0666)) == -1){
@@ -100,14 +102,14 @@ void Pose100Hz::initSemShm()
     V(semidros);
 }
 
-void Pose100Hz::imuReceived(const sensor_msgs::ImuConstPtr& msg)
+void HighFreqPose::imuReceived(const sensor_msgs::ImuConstPtr& msg)
 {
     imu_data_[0] = msg->angular_velocity.x;
     imu_data_[1] = msg->angular_velocity.y;
     imu_data_[2] = msg->angular_velocity.z;
 }
 
-void Pose100Hz::poseReceived(const ros::TimerEvent& event)
+void HighFreqPose::poseReceived(const ros::TimerEvent& event)
 {   
     //geometry_msgs::TransformStamped transformStamped;
     geometry_msgs::TransformStamped odom_to_map;
@@ -132,9 +134,9 @@ void Pose100Hz::poseReceived(const ros::TimerEvent& event)
         */
         // separately get the base to odom and odom to map transform, and then calculate the base to map transform by myself instead of letting tf do it
         base_to_odom = tfBuffer.lookupTransform(odom_frame_id_, base_frame_id_, ros::Time(0));
-        //ROS_INFO("Got transform of %s to %s at time %f", base_frame_id_.c_str(), odom_frame_id_.c_str(), base_to_odom.header.stamp.toSec());
+        ROS_INFO("Got transform of %s to %s at time %f", base_frame_id_.c_str(), odom_frame_id_.c_str(), base_to_odom.header.stamp.toSec());
         odom_to_map = tfBuffer.lookupTransform(global_frame_id_, odom_frame_id_, ros::Time(0));
-        //ROS_INFO("Got transform of %s to %s at time %f", odom_frame_id_.c_str(), global_frame_id_.c_str(), odom_to_map.header.stamp.toSec());
+        ROS_INFO("Got transform of %s to %s at time %f", odom_frame_id_.c_str(), global_frame_id_.c_str(), odom_to_map.header.stamp.toSec());
         
         tf2::Transform base_to_odom_tf2, odom_to_map_tf2, base_to_map_tf2;
         tf2::fromMsg(base_to_odom.transform, base_to_odom_tf2);
@@ -182,7 +184,7 @@ void Pose100Hz::poseReceived(const ros::TimerEvent& event)
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "pose_100Hz");
-    Pose100Hz pose100Hz;
+    HighFreqPose HighFreqPose;
 
     ros::spin();
     return 0;
