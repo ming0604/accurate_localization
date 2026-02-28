@@ -39,9 +39,9 @@ class Pose100Hz
         ros::Subscriber imu_sub_;
         double imu_data_[3] = {0.0, 0.0, 0.0};
 
-        geometry_msgs::TransformStamped transformStamped;
 
         string global_frame_id_;
+        string odom_frame_id_;
         string base_frame_id_;
         bool use_shm_;
 
@@ -57,6 +57,7 @@ class Pose100Hz
             
             // get parameters from launch file
             private_nh_.param<string>("global_frame_id", global_frame_id_, "map");
+            private_nh_.param<string>("odom_frame_id", odom_frame_id_, "odom");
             private_nh_.param<string>("base_frame_id", base_frame_id_, "base_link");
             private_nh_.param("use_shared_memory", use_shm_, false);
 
@@ -101,56 +102,80 @@ void Pose100Hz::initSemShm()
 
 void Pose100Hz::imuReceived(const sensor_msgs::ImuConstPtr& msg)
 {
-  imu_data_[0] = msg->angular_velocity.x;
-  imu_data_[1] = msg->angular_velocity.y;
-  imu_data_[2] = msg->angular_velocity.z;
+    imu_data_[0] = msg->angular_velocity.x;
+    imu_data_[1] = msg->angular_velocity.y;
+    imu_data_[2] = msg->angular_velocity.z;
 }
 
 void Pose100Hz::poseReceived(const ros::TimerEvent& event)
-{
-  geometry_msgs::PoseWithCovarianceStamped ffp;
+{   
+    //geometry_msgs::TransformStamped transformStamped;
+    geometry_msgs::TransformStamped odom_to_map;
+    geometry_msgs::TransformStamped base_to_odom;  
+    geometry_msgs::PoseWithCovarianceStamped ffp;
 
-  // ROS_INFO("FFP");
-  ffp.header.frame_id = global_frame_id_;
-  ffp.header.stamp = ros::Time::now(); 
-    
-  try{
-    transformStamped = tfBuffer.lookupTransform(global_frame_id_, base_frame_id_, ros::Time(0));
-    ROS_INFO("Got transform of %s to %s at time %f", base_frame_id_.c_str(), global_frame_id_.c_str(), transformStamped.header.stamp.toSec());
-    ffp.pose.pose.position.x = transformStamped.transform.translation.x;
-    ffp.pose.pose.position.y = transformStamped.transform.translation.y;
-    ffp.pose.pose.orientation = transformStamped.transform.rotation;
+    // ROS_INFO("FFP");
+    ffp.header.frame_id = global_frame_id_;
+    ffp.header.stamp = ros::Time::now(); 
+        
+    try{
+        /*         
+        // directly get the transform from base_link to map, which is the pose of the robot in the map frame
+        // tf will find the latest common time between the (base to odom) and (odom to map) transform, and return the corresponding base to map transform
+        transformStamped = tfBuffer.lookupTransform(global_frame_id_, base_frame_id_, ros::Time(0));
+        ROS_INFO("Got transform of %s to %s at time %f", base_frame_id_.c_str(), global_frame_id_.c_str(), transformStamped.header.stamp.toSec());
+        
+        ffp.pose.pose.position.x = transformStamped.transform.translation.x;
+        ffp.pose.pose.position.y = transformStamped.transform.translation.y;
+        ffp.pose.pose.position.z = 0.0;
+        ffp.pose.pose.orientation = transformStamped.transform.rotation; 
+        */
+        // separately get the base to odom and odom to map transform, and then calculate the base to map transform by myself instead of letting tf do it
+        base_to_odom = tfBuffer.lookupTransform(odom_frame_id_, base_frame_id_, ros::Time(0));
+        //ROS_INFO("Got transform of %s to %s at time %f", base_frame_id_.c_str(), odom_frame_id_.c_str(), base_to_odom.header.stamp.toSec());
+        odom_to_map = tfBuffer.lookupTransform(global_frame_id_, odom_frame_id_, ros::Time(0));
+        //ROS_INFO("Got transform of %s to %s at time %f", odom_frame_id_.c_str(), global_frame_id_.c_str(), odom_to_map.header.stamp.toSec());
+        
+        tf2::Transform base_to_odom_tf2, odom_to_map_tf2, base_to_map_tf2;
+        tf2::fromMsg(base_to_odom.transform, base_to_odom_tf2);
+        tf2::fromMsg(odom_to_map.transform, odom_to_map_tf2);
+        base_to_map_tf2 = odom_to_map_tf2 * base_to_odom_tf2;
 
-    // if the shared memory is used, write the pose data into shared memory
-    if(use_shm_)
-    {
-        P(semidros);
-        // amclPtr =shmPtr_ros;
-        shmPtrros[0] = ffp.header.stamp.toNSec();
-        shmPtrros[1] = ffp.pose.pose.position.x;
-        shmPtrros[2] = ffp.pose.pose.position.y;
-        shmPtrros[3] = tf2::getYaw(ffp.pose.pose.orientation);
-        // shmPtrros[4] = (ffp.pose.pose.position.x - lp.pose.pose.position.x)/0.01;
-        // shmPtrros[5] = 0;
-        // shmPtrros[6] = 0;
-        shmPtrros[7] = imu_data_[1];
-        V(semidros);
+        ffp.pose.pose.position.x = base_to_map_tf2.getOrigin().x();
+        ffp.pose.pose.position.y = base_to_map_tf2.getOrigin().y();
+        ffp.pose.pose.position.z = 0.0;
+        ffp.pose.pose.orientation = tf2::toMsg(base_to_map_tf2.getRotation());
+
+        // if the shared memory is used, write the pose data into shared memory
+        if(use_shm_)
+        {
+            P(semidros);
+            // amclPtr =shmPtr_ros;
+            shmPtrros[0] = ffp.header.stamp.toNSec();
+            shmPtrros[1] = ffp.pose.pose.position.x;
+            shmPtrros[2] = ffp.pose.pose.position.y;
+            shmPtrros[3] = tf2::getYaw(ffp.pose.pose.orientation);
+            // shmPtrros[4] = (ffp.pose.pose.position.x - lp.pose.pose.position.x)/0.01;
+            // shmPtrros[5] = 0;
+            // shmPtrros[6] = 0;
+            shmPtrros[7] = imu_data_[1];
+            V(semidros);
+        }
+
+        // ffp.pose.covariance[0] = 0.025;
+        // ffp.pose.covariance[6] = 0.025;
+        // ffp.pose.covariance[35] = 0.001;
+
+        // publish the pose at 100Hz on the topic "freq_pose"
+        fixed_freq_pose_pub_.publish(ffp);
+        // lp.pose.pose.position.x = ffp.pose.pose.position.x;
+        // lp.pose.pose.position.y = ffp.pose.pose.position.y;
     }
-
-    // ffp.pose.covariance[0] = 0.025;
-    // ffp.pose.covariance[6] = 0.025;
-    // ffp.pose.covariance[35] = 0.001;
-
-    // publish the pose at 100Hz on the topic "freq_pose"
-    fixed_freq_pose_pub_.publish(ffp);
-    // lp.pose.pose.position.x = ffp.pose.pose.position.x;
-    // lp.pose.pose.position.y = ffp.pose.pose.position.y;
-  }
-  catch(tf2::TransformException &ex){
-    // use ROS_ERROR_THROTTLE to constrain the error message output to 1Hz, avoiding flooding the console
-    ROS_ERROR_THROTTLE(1.0, "%s", ex.what());
-    // ros::Duration(1.0).sleep();
-  }
+    catch(tf2::TransformException &ex){
+        // use ROS_ERROR_THROTTLE to constrain the error message output to 1Hz, avoiding flooding the console
+        ROS_ERROR_THROTTLE(1.0, "%s", ex.what());
+        // ros::Duration(1.0).sleep();
+    }
 }
 
 
