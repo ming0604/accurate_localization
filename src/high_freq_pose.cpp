@@ -76,7 +76,19 @@ class HighFreqPose
         }
         ~HighFreqPose()
         {
-            //TODO: release shared memory and semaphore(if needed)
+            if(use_shm_)
+            {   
+                // remove semaphore
+                if(semctl(semidros, 0, IPC_RMID, 0) == -1){
+                    ROS_ERROR("semctl remove semaphore semidros error");
+                }
+                // detach shared memory from this process
+                shmdt(shmPtrros);
+                // remove shared memory
+                if(shmctl(shmidros, IPC_RMID, NULL) == -1){
+                    ROS_ERROR("shmctl remove shared memory shmidros error");
+                }
+            }
         }
 
 };
@@ -98,8 +110,12 @@ void HighFreqPose::initSemShm()
         printf("semget error\n");
         exit(1);
     }
-    //TODO: initialize shared memory and semaphore
-    V(semidros);
+    //initialize semaphore value to 1
+    if(semctl(semidros, 0, SETVAL, 1) == -1){
+        printf("semidros semctl initialization error\n");
+        exit(1);
+    }
+    // V(semidros);
 }
 
 void HighFreqPose::imuReceived(const sensor_msgs::ImuConstPtr& msg)
@@ -183,8 +199,8 @@ void HighFreqPose::poseReceived(const ros::TimerEvent& event)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "pose_100Hz");
-    HighFreqPose HighFreqPose;
+    ros::init(argc, argv, "high_freq_pose");
+    HighFreqPose high_freq_pose;
 
     ros::spin();
     return 0;
