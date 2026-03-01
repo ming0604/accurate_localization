@@ -80,13 +80,19 @@ class HighFreqPose
             {   
                 // remove semaphore
                 if(semctl(semidros, 0, IPC_RMID, 0) == -1){
-                    ROS_ERROR("semctl remove semaphore semidros error");
+                    printf("semctl remove semaphore semidros error\n");
+                }
+                else{
+                    printf("Semaphore semidros removed successfully\n");
                 }
                 // detach shared memory from this process
                 shmdt(shmPtrros);
                 // remove shared memory
                 if(shmctl(shmidros, IPC_RMID, NULL) == -1){
-                    ROS_ERROR("shmctl remove shared memory shmidros error");
+                    printf("shmctl remove shared memory shmidros error\n");
+                }
+                else{
+                    printf("Shared memory shmidros removed successfully\n");
                 }
             }
         }
