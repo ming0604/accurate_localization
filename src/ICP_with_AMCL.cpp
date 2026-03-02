@@ -66,6 +66,7 @@ private:
     double cov_yawyaw;
     int re_init_count = 0;
     bool reinit;
+    bool pub_odom_drift_tf;
     bool map_received;
     bool laser_to_base_received;
     bool pc_map_received;
@@ -86,6 +87,10 @@ private:
     ros::WallDuration scan_matching_time_used; 
     ros::WallDuration amcl_pub_duration;
     ros::WallDuration scan_matching_pub_duration; 
+
+    //time for tolerance on the published transform,
+    //basically defines how long a map->odom transform is good for
+    ros::Duration transform_tolerance;
    
 
     nav_msgs::OccupancyGrid grid_map;
@@ -192,6 +197,7 @@ public:
     {   
         _nh = nh;
         InitParams();
+        double tmp_tol;
         init_cov_[0] = 0.5 * 0.5;
         init_cov_[1] = 0.5 * 0.5;
         init_cov_[2] = (M_PI/12.0) * (M_PI/12.0);
@@ -230,6 +236,8 @@ public:
         _nh.param<string>("scan_matching_time_save_path", scan_matching_time_save_path,"/Default/path");
         _nh.param<string>("scan_matching_pose_time_save_path", scan_matching_pose_time_save_path,"/Default/path");
         _nh.param("use_reinitiate", reinit , false);
+        _nh.param("publish_odometry_drift_correction_tf", pub_odom_drift_tf, true);
+        _nh.param("transform_tolerance", tmp_tol, 0.12);
         _nh.param("re_initial_cov_xx", cov_xx , init_cov_[0]);
         _nh.param("re_initial_cov_yy", cov_yy, init_cov_[1]);
         _nh.param("re_initial_cov_aa", cov_yawyaw, init_cov_[2]);
@@ -239,6 +247,8 @@ public:
         _nh.param<string>("base_frame_id", base_frame_id ,"base_link");
         _nh.param<string>("Lidar_frame_id", laser_frame_id ,"laser");
         _nh.param<string>("global_frame_id", global_frame_id ,"map");
+
+        transform_tolerance.fromSec(tmp_tol);
 
         if(scan_match_method_Str == "ICP")
         {
@@ -513,7 +523,7 @@ public:
         try{
             //"base_link is target,odom is source"
             odom_to_base = tfBuffer.lookupTransform(base_frame_id, odom_frame_id, t);
-            tf2::fromMsg(odom_to_base.transform,odom_to_base_tf2);
+            tf2::fromMsg(odom_to_base.transform, odom_to_base_tf2);
         }
         catch (tf2::TransformException& ex) {
             ROS_ERROR("%s", ex.what());
@@ -939,19 +949,21 @@ public:
         PLICP_pose_yaw = tf2::getYaw(q);
         ROS_INFO("PLICP Pose: x=%f, y=%f, theta=%f",PLICP_pose_x,PLICP_pose_y,PLICP_pose_yaw);
         
-        /*
-        //get new odom to map and broadcast it
-        tf2::Transform tf2_odom_to_map;
-        tf2_odom_to_map = new_base_to_map*odom_to_base_tf2;
+        if(pub_odom_drift_tf)
+        {
+            //get new odom to map and broadcast it
+            tf2::Transform tf2_odom_to_map;
+            tf2_odom_to_map = new_base_to_map*odom_to_base_tf2;
 
-        geometry_msgs::TransformStamped odom_to_map_tf_stamped;
-        odom_to_map_tf_stamped.header.frame_id = global_frame_id;
-        odom_to_map_tf_stamped.header.stamp = ros::Time::now();
-        odom_to_map_tf_stamped.child_frame_id = odom_frame_id;
-        tf2::convert(tf2_odom_to_map, odom_to_map_tf_stamped.transform);
-        br.sendTransform(odom_to_map_tf_stamped);
-        ROS_INFO("odom_to_map has been corrected\n");
-        */
+            geometry_msgs::TransformStamped odom_to_map_tf_stamped;
+            odom_to_map_tf_stamped.header.frame_id = global_frame_id;
+            // odom_to_map_tf_stamped.header.stamp = ros::Time::now();
+            odom_to_map_tf_stamped.header.stamp = (scan_time_stamp + transform_tolerance);
+            odom_to_map_tf_stamped.child_frame_id = odom_frame_id;
+            tf2::convert(tf2_odom_to_map, odom_to_map_tf_stamped.transform);
+            br.sendTransform(odom_to_map_tf_stamped);
+            ROS_INFO("odom_to_map has been corrected by PL-ICP with timestamp: %f", odom_to_map_tf_stamped.header.stamp.toSec());
+        }
     }
 
     void do_PLICP()

@@ -22,9 +22,9 @@
     <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find map_merging)/merging_result/20241218_vive_mapping_test3_and_20250216_vive_mapping_20m_test3_merging_tuning/f255_occ0_un127_AKAZE_BF.yaml"/>  -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250906_gmap_2.yaml"/>-->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250918_gmap1.yaml"/> -->
-    <!-- <node pkg="map_server" type="map_server" name="map_server" 
-        args="/$(find map_merging)/merging_result/20250920_vive_local1_map3_masked_and_20250920_vive_local2_map4_masked_merging/20250920_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r09.yaml"/>  -->
+    <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250918_gmap1.yaml"/>-->
+     <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find map_merging)/merging_result/20250920_vive_local1_map3_masked_and_20250920_vive_local2_map4_masked_merging/20250920_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r09.yaml"/>  
     <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find map_merging)/merging_result/20250920_vive_local1_map3_masked_and_20251004_vive_local2_map2_masked_merging/20250920_local1_and_20251004_local2_area_masked_maps_merging_f255_occ0_un127_AKAZE_BF_r08.yaml"/> 
        -->
@@ -71,7 +71,7 @@
         <param name="use_map_topic" value="true"/>
         <param name="first_map_only" value="false"/>
         <param name="selective_resampling" value="false"/>
-        <param name="tf_broadcast" value="true"/>
+        <param name="tf_broadcast" value="false"/>        
 
         <!-- laser model parameters -->
         <param name="laser_min_range" value="0.06"/>
@@ -116,6 +116,8 @@
         <param name="global_frame_id" value="map"/>
         
         <param name="use_reinitiate" value="false"/>
+        <param name="publish_odometry_drift_correction_tf" value="true"/>
+        <param name="transform_tolerance" value="0.12"/>  <!-- useless unless the method of getting tf pose in high_freq_pose is changed -->
         <param name="re_initial_cov_xx" value="0.25"/>
         <param name="re_initial_cov_yy" value="0.25"/>
         <param name="re_initial_cov_aa" value="0.069"/>
@@ -127,6 +129,14 @@
         
     </node>
 
+    <node pkg="accurate_localization" type="high_freq_pose" name="high_freq_pose" output="screen">
+        <param name="global_frame_id" value="map"/>
+        <param name="odom_frame_id" value="odom_frame"/>
+        <param name="base_frame_id" value="base_link"/>
+        <param name="use_shared_memory" value="false"/>
+        <param name="get_pose_frequency" value="160.0"/>
+    </node>
+
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
         <param name="do_calibration" value="false"/>
         <param name="vive_yaw_edit" value="false"/>
@@ -136,7 +146,7 @@
         <param name="edition_plus_on_tracker_yaw" value="-0.002"/>
     </node>
     <!--
-    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20250925_Jturn5_openloop_PLICP_20250918_gmap1_no_calid
+    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20250925_Jturn3_openloop_PLICP_100HzPoseUseTransTol010byPLICP_20250920_vive_local1_map3_masked_and_20250920_vive_local2_map4_masked_merging_20250920_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r09_no_calid_no_calid
             /tf
             /tf_static
             /base_gt_odom
@@ -144,5 +154,14 @@
             /amcl_pose
             /PLICP_pose"
     /> 
-    -->
+    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20250925_Jturn3_openloop_PLICP_100HzPoseUseTransTol010byPLICP_20250920_vive_local1_map3_masked_and_20250920_vive_local2_map4_masked_merging_20250920_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r09_no_calid_no_calid
+            /tf
+            /tf_static
+            /base_gt_odom
+            /base_gt
+            /freq_pose
+            /amcl_pose
+            /PLICP_pose"
+    /> -->
+    
 </launch>

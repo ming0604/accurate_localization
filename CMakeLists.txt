@@ -165,6 +165,8 @@ target_link_libraries(tf_static_test ${catkin_LIBRARIES} )
 add_executable(tf_test_bag_listening src/tf_test_bag_listening.cpp)
 target_link_libraries(tf_test_bag_listening ${catkin_LIBRARIES} )
  
+add_executable(high_freq_pose src/high_freq_pose.cpp)
+target_link_libraries(high_freq_pose ${catkin_LIBRARIES} )
 
 
 
