@@ -22,12 +22,13 @@
     <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find map_merging)/merging_result/20241218_vive_mapping_test3_and_20250216_vive_mapping_20m_test3_merging_tuning/f255_occ0_un127_AKAZE_BF.yaml"/>  -->
     <!--<node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250906_gmap_2.yaml"/>-->
-    <node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250918_gmap1.yaml"/>
+    <!-- <node pkg="map_server" type="map_server" name="map_server" args="/$(find amcl)/amcl_data/maps/20250918_gmap1.yaml"/> -->
     <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find map_merging)/merging_result/20250920_vive_local1_map3_masked_and_20250920_vive_local2_map4_masked_merging/20250920_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r09.yaml"/>  -->
     <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find map_merging)/merging_result/20250920_vive_local1_map3_masked_and_20251004_vive_local2_map2_masked_merging/20250920_local1_and_20251004_local2_area_masked_maps_merging_f255_occ0_un127_AKAZE_BF_r08.yaml"/> 
        -->
+    <node pkg="map_server" type="map_server" name="map_server" args="/$(find sdc)/maps/20250918_gmap1.yaml"/>
     <!-- Robot Localization using ekf
     <include file="$(find sdc)/launch/ekf_localization.launch"/> -->
 
@@ -134,7 +135,7 @@
         <param name="base_link_initial_pose_yaw" value="-0.002845"/>
         <param name="edition_plus_on_tracker_yaw" value="-0.002"/>
     </node>
-    <!---->
+    <!--
     <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/mingzhun/lab_localization/bag/20250925_Jturn5_openloop_PLICP_20250918_gmap1_no_calid
             /tf
             /tf_static
@@ -143,5 +144,5 @@
             /amcl_pose
             /PLICP_pose"
     /> 
-    
+    -->
 </launch>
