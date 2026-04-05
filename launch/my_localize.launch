@@ -29,13 +29,15 @@
     <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find map_merging)/merging_result/20250920_vive_local1_map3_masked_and_20251004_vive_local2_map2_masked_merging/20250920_local1_and_20251004_local2_area_masked_maps_merging_f255_occ0_un127_AKAZE_BF_r08.yaml"/> 
        -->
-
+    <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find map_merging)/merging_result/20260327_vive_local1_map6_masked_and_20260328_vive_local2_map3_masked_merging/20260327_vive_local1_map6_and_20260328_vive_local2_map3_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r08.yaml"/> 
+      
     <!-- for using on car-->
 
     <!-- <node pkg="map_server" type="map_server" name="map_server" args="/$(find sdc)/maps/20250918_gmap1.yaml"/> -->
-    <node pkg="map_server" type="map_server" name="map_server" 
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find sdc)/maps/merged_maps/20250920_vive_local1_map3_masked_and_20250920_vive_local2_map4_masked_merging/20250920_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r09.yaml"/>
-    
+     -->
     <!-- Robot Localization using ekf
     <include file="$(find sdc)/launch/ekf_localization.launch"/> -->
 
@@ -141,7 +143,8 @@
         <param name="odom_frame_id" value="odom_frame"/>
         <param name="base_frame_id" value="base_link"/>
         <param name="use_shared_memory" value="true"/>
-        <param name="get_pose_frequency" value="160.0"/>
+        <!-- <param name="get_pose_frequency" value="160.0"/> -->
+        <param name="get_pose_frequency" value="180.0"/>
     </node>
 
     <node pkg="accurate_localization" type="base_gt" name="base_gt" output="screen">
