@@ -948,9 +948,9 @@ public:
         PLICP_pose_y = new_base_to_map.getOrigin().y();
         tf2::Quaternion q;
         q = new_base_to_map.getRotation();
-        //for checking the validity of the quaternion
-        ROS_INFO("PLICP Pose Quaternion q: [x: %f, y: %f, z: %f, w: %f]", q.getX(), q.getY(), q.getZ(), q.getW());
-        ROS_INFO("PLICP Pose Quaternion length: %f", q.length()); // should be 1 for a valid rotation
+        // //for checking the validity of the quaternion
+        // ROS_INFO("PLICP Pose Quaternion q: [x: %f, y: %f, z: %f, w: %f]", q.getX(), q.getY(), q.getZ(), q.getW());
+        // ROS_INFO("PLICP Pose Quaternion length: %f", q.length()); // should be 1 for a valid rotation
         PLICP_pose_yaw = tf2::getYaw(q);
         ROS_INFO("PLICP Pose: x=%f, y=%f, theta=%f",PLICP_pose_x,PLICP_pose_y,PLICP_pose_yaw);
         
@@ -959,11 +959,11 @@ public:
             //get new odom to map and broadcast it
             tf2::Transform tf2_odom_to_map;
             tf2_odom_to_map = new_base_to_map*odom_to_base_tf2;
-            // ======== 新增這三行來檢查 tf2_odom_to_map 的四元數 ========
-            tf2::Quaternion q_odom_map = tf2_odom_to_map.getRotation();
-            ROS_INFO("tf2_odom_to_map q: [x: %f, y: %f, z: %f, w: %f]", 
-                     q_odom_map.getX(), q_odom_map.getY(), q_odom_map.getZ(), q_odom_map.getW());
-            ROS_INFO("tf2_odom_to_map Length: %f", q_odom_map.length());
+            // // ======== 新增這三行來檢查 tf2_odom_to_map 的四元數 ========
+            // tf2::Quaternion q_odom_map = tf2_odom_to_map.getRotation();
+            // ROS_INFO("tf2_odom_to_map q: [x: %f, y: %f, z: %f, w: %f]", 
+            //          q_odom_map.getX(), q_odom_map.getY(), q_odom_map.getZ(), q_odom_map.getW());
+            // ROS_INFO("tf2_odom_to_map Length: %f", q_odom_map.length());
 
             geometry_msgs::TransformStamped odom_to_map_tf_stamped;
             odom_to_map_tf_stamped.header.frame_id = global_frame_id;
