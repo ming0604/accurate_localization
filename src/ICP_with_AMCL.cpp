@@ -279,6 +279,8 @@ public:
         file_scan_matching_time << "start time, end time, time duration\n";
         file_scan_matching_pose_time.open(scan_matching_pose_time_save_path);
         file_scan_matching_pose_time << "last time, this time, pub duration\n";
+
+        ROS_WARN("publish_odometry_drift_correction_tf: %s", pub_odom_drift_tf ? "true" : "false");
     }
     
     ~ICP_with_AMCL()
