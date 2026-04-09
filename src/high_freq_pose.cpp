@@ -154,11 +154,12 @@ void HighFreqPose::poseReceived(const ros::TimerEvent& event)
         ffp.pose.pose.position.z = 0.0;
         ffp.pose.pose.orientation = transformStamped.transform.rotation; 
         */
+       
         // separately get the base to odom and odom to map transform, and then calculate the base to map transform by myself instead of letting tf do it
         base_to_odom = tfBuffer.lookupTransform(odom_frame_id_, base_frame_id_, ros::Time(0));
-        ROS_INFO("Got transform of %s to %s at time %f", base_frame_id_.c_str(), odom_frame_id_.c_str(), base_to_odom.header.stamp.toSec());
+        // ROS_INFO("Got transform of %s to %s at time %f", base_frame_id_.c_str(), odom_frame_id_.c_str(), base_to_odom.header.stamp.toSec());
         odom_to_map = tfBuffer.lookupTransform(global_frame_id_, odom_frame_id_, ros::Time(0));
-        ROS_INFO("Got transform of %s to %s at time %f", odom_frame_id_.c_str(), global_frame_id_.c_str(), odom_to_map.header.stamp.toSec());
+        // ROS_INFO("Got transform of %s to %s at time %f", odom_frame_id_.c_str(), global_frame_id_.c_str(), odom_to_map.header.stamp.toSec());
         
         tf2::Transform base_to_odom_tf2, odom_to_map_tf2, base_to_map_tf2;
         tf2::fromMsg(base_to_odom.transform, base_to_odom_tf2);
