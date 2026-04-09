@@ -1,0 +1,27 @@
+<launch>
+
+    <arg name="publish_odom_tf" default="true" />
+
+    <node pkg="accurate_localization" type="ICP_with_AMCL" name="ICP_with_AMCL" output="screen">
+        <param name="amcl_time_save_path" type="string" value="$(find accurate_localization)/result/amcl_time.csv" />
+        <param name="scan_matching_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_count_time.csv" />
+        <param name="scan_matching_pose_time_save_path" type="string" value="$(find accurate_localization)/result/PLICP_pose_pub_time.csv" />
+        <param name="odom_frame_id" value="odom_frame"/>
+        <param name="base_frame_id" value="base_link"/>
+        <param name="Lidar_frame_id" value="laser"/>
+        <param name="global_frame_id" value="map"/>
+        
+        <param name="use_reinitiate" value="false"/>
+        <param name="publish_odometry_drift_correction_tf" value="$(arg publish_odom_tf)"/>
+        <param name="transform_tolerance" value="0.12"/>  <!-- useless unless the method of getting tf pose in high_freq_pose is changed -->
+        <param name="re_initial_cov_xx" value="0.25"/>
+        <param name="re_initial_cov_yy" value="0.25"/>
+        <param name="re_initial_cov_aa" value="0.069"/>
+        <param name="scan_match_method" type="string" value="PLICP"/>
+        <!--<param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/1114_map.pcd"/>-->
+        <!--<param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/1016_map05.pcd"/> -->
+        <param name="pc_map_path" value="$(find accurate_localization)/src/pc_map/20240705_test5_1map.pcd"/>
+        
+        
+    </node>
+</launch>
