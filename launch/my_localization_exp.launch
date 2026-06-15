@@ -5,15 +5,24 @@
     <param name="/use_sim_time" value="false" />
 
     <!-- load map -->
-    <node pkg="map_server" type="map_server" name="map_server" 
-        args="/$(find sdc)/maps/merged_maps/20260327_vive_local1_map6_and_20260328_vive_local2_map3_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r08.yaml"/> 
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find sdc)/maps/merged_maps/20260327_vive_local1_map6_and_20260328_vive_local2_map3_area_masked_maps_merging_f255_occ0_un127_ORB_BF_r08.yaml"/>  -->
     
     <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find sdc)/maps/20260329_gmap_map2.yaml"/>  -->
-    
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find sdc)/maps/20260329_gmap_map1.yaml"/> -->
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find sdc)/maps/20250119_gmap_test3.yaml"/> -->
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find sdc)/maps/1114_map.yaml"/>         -->
+    <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find sdc)/maps/20260523_gmap1.yaml"/>
+    <!-- <node pkg="map_server" type="map_server" name="map_server" 
+        args="/$(find sdc)/maps/20260523_gmap2.yaml"/>         -->
     <!-- <node pkg="map_server" type="map_server" name="map_server" 
         args="/$(find sdc)/maps/202504009_lab_test.yaml"/>  -->
-        
+
     <!-- Run high_freq_pose to provide pose to the controller -->
     <node pkg="accurate_localization" type="high_freq_pose" name="high_freq_pose" output="screen">
         <param name="global_frame_id" value="map"/>
